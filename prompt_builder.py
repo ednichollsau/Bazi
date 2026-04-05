@@ -2,7 +2,7 @@
 prompt_builder.py
 -----------------
 Constructs the system prompt and user-turn message sent to Claude for the
-Four Pillars · Ear Seed Protocol reading.
+Four Pillars · Elemental Constitution reading.
 
 Exports
 -------
@@ -25,6 +25,21 @@ from bazi_calculator import (
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Current Year Pillar  (update annually)
+# ─────────────────────────────────────────────────────────────────────────────
+
+CURRENT_YEAR        = 2026
+CURRENT_YEAR_STEM   = "丙"          # Bǐng — Yang Fire
+CURRENT_YEAR_BRANCH = "午"          # Wǔ  — Horse (Fire)
+CURRENT_YEAR_NOTE   = (
+    "2026 is 丙午 (Bǐng-Wǔ) — the Yang Fire Horse. "
+    "This is a rare double-Fire year: both the Heavenly Stem (丙) and the "
+    "Earthly Branch (午) carry Fire energy, making 2026 one of the most "
+    "intensely Yang, expansive, and fiery years in the 60-year cycle."
+)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # System Prompt
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -33,11 +48,9 @@ You are a warm, engaging guide introducing people to the world of Chinese elemen
 wellness — many of whom have never encountered these ideas before. Your job is to \
 make ancient wisdom feel immediately personal, relevant, and exciting.
 
-You are working with two complementary tools:
-  • A person's Ba Zi chart (their birth date decoded into Five Elements — Wood, \
-Fire, Earth, Metal, and Water)
-  • An ear seed protocol — tiny seeds placed on specific points of the ear that \
-correspond to different organ systems and elements in the body
+You are working with a person's Ba Zi chart — their birth date decoded into the \
+Five Elements (Wood, Fire, Earth, Metal, and Water) — to offer a personalised \
+constitutional reading and practical wellness guidance.
 
 Your reading should feel like a knowledgeable friend explaining something \
 fascinating about them — not a textbook, not a medical report. Lead with the \
@@ -60,18 +73,23 @@ physical tendencies. Keep it relatable — think less "your Wood is deficient" a
 more "you may find it hard to feel motivated or make decisions easily." One \
 interesting fact about the Five Element system woven in naturally is great here.
 
-3. YOUR EAR SEEDS AND WHY (1–2 short paragraphs + the point lists)
-   Explain what ear seeds are in one sentence for someone who has never heard of \
-them. Then explain the protocol in plain, friendly terms — what each point or group \
-of points is doing for them specifically, tied back to their elemental picture. \
-List the left and right ear points clearly. End with one simple, practical \
-wellness suggestion that fits their constitution — a food, a habit, a type of \
-movement, or something to be mindful of emotionally.
+3. YOUR CONSTITUTION IN 2026 (2–3 short paragraphs)
+   Explain how this person's unique elemental makeup interacts with the energy of \
+2026 — the 丙午 (Bǐng-Wǔ) Yang Fire Horse year. This is a double-Fire year: both \
+the stem and branch carry Fire, making it one of the most expansive, yang, and \
+high-energy years in the 60-year cycle. Be specific to their constitution:
+   – What does this Fire surge activate, amplify, or challenge in them?
+   – Where might they feel the year's energy most strongly — in their body, \
+emotions, relationships, or work?
+   – Offer 2–3 practical, grounded wellness suggestions tailored to how their \
+constitution meets this particular year's energy. These can be foods, habits, \
+types of movement, seasonal rhythms, or emotional patterns to be mindful of. \
+Make these feel specific to them, not generic wellness advice.
 
 4. CONCLUSION (1 short paragraph — separated by a blank line)
    End with a warm, memorable closing paragraph addressed to the person by name. \
-Bring together their elemental nature, what the ear seeds are supporting, and a \
-single encouraging thought about what this practice means for their wellbeing. \
+Weave together their elemental nature, how 2026's energy lands for them specifically, \
+and a single encouraging thought about what this awareness means for their year ahead. \
 Make it feel like the end of a meaningful conversation, not a sign-off. This \
 paragraph will be displayed separately and highlighted, so make it land well.
 
@@ -80,8 +98,8 @@ TONE & STYLE
 friend, not a practitioner writing clinical notes.
   – Never assume prior knowledge. Every concept gets a plain-English translation.
   – Short paragraphs. No jargon without immediate explanation.
-  – Address the person by name.
-  – 400–550 words total — punchy, not exhaustive.
+  – Address the person by name at least once per section.
+  – 500–650 words total — substantial enough to feel meaningful, punchy enough to hold attention.
   – Always end with a blank line followed by the conclusion paragraph.
   – Weave in naturally: this is a complementary wellness practice, not a \
 substitute for medical advice.\
@@ -93,10 +111,6 @@ substitute for medical advice.\
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _fmt_pillar(stem: str, branch: str) -> str:
-    """
-    Return a richly annotated pillar description, e.g.
-    '庚午  (Gēng-Wǔ)  —  Metal Yang Stem  /  Fire Horse Branch'
-    """
     si = STEMS.index(stem)
     bi = BRANCHES.index(branch)
     return (
@@ -114,9 +128,6 @@ def build_user_message(
     name:         str,
     pillars:      dict[str, tuple[str, str]],
     constitution: dict[str, str],
-    left_points:  list[str],
-    right_points: list[str],
-    rationale:    str,
     spread:       int,
     is_balanced:  bool,
     weakest:      str,
@@ -125,28 +136,16 @@ def build_user_message(
     """
     Construct the user-turn message sent to Claude.
 
-    All data has been pre-calculated by the Ba Zi engine; this function
-    formats it into a clear, structured prompt.
-
     Parameters
     ----------
     name          : Person's preferred name.
     pillars       : Output of get_four_pillars() — dict of pillar → (stem, branch).
     constitution  : Output of interpret_constitution() — dict of element → state.
-    left_points   : Left ear auricular points (list of str).
-    right_points  : Right ear auricular points (list of str).
-    rationale     : Plain-text rationale from build_protocol().
     spread        : Imbalance score 0–3 from spread_score().
     is_balanced   : Boolean from is_balanced().
     weakest       : Name of the weakest element.
     strongest     : Name of the strongest element.
-
-    Returns
-    -------
-    str — the formatted user message.
     """
-    # ── Four Pillars block ────────────────────────────────────────────────────
-    # Identify Day Master for special annotation
     day_stem, day_branch = pillars["Day"]
     day_stem_idx = STEMS.index(day_stem)
     day_master_label = (
@@ -157,18 +156,13 @@ def build_user_message(
     pillar_lines = []
     for pillar_name, (s, b) in pillars.items():
         suffix = "  ← Day Master (日主)" if pillar_name == "Day" else ""
-        pillar_lines.append(
-            f"  {pillar_name:<6}: {_fmt_pillar(s, b)}{suffix}"
-        )
+        pillar_lines.append(f"  {pillar_name:<6}: {_fmt_pillar(s, b)}{suffix}")
     pillar_block = "\n".join(pillar_lines)
 
-    # ── Five Element constitution block ───────────────────────────────────────
     elem_lines = "\n".join(
-        f"  {elem:<6}: {state}"
-        for elem, state in constitution.items()
+        f"  {elem:<6}: {state}" for elem, state in constitution.items()
     )
 
-    # ── Balance summary ───────────────────────────────────────────────────────
     if is_balanced:
         balance_summary = "Well-balanced — no element is Absent or Excess."
     else:
@@ -177,13 +171,9 @@ def build_user_message(
             f"Most deficient: {weakest}.  Most abundant: {strongest}."
         )
 
-    # ── Ear seed protocol block ───────────────────────────────────────────────
-    left_str  = ", ".join(left_points)
-    right_str = ", ".join(right_points)
-
-    # ── Compose full message ──────────────────────────────────────────────────
     msg = f"""\
-Please prepare a personalised Ba Zi · Ear Seed reading for the following person.
+Please prepare a personalised Ba Zi · Elemental Constitution reading for the \
+following person.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PERSON
@@ -204,21 +194,16 @@ FIVE ELEMENT CONSTITUTION
 Balance: {balance_summary}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EAR SEED PROTOCOL
+CURRENT YEAR  ({CURRENT_YEAR})
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Left ear  (Yin / tonification / constitutional support):
-  {left_str}
+Year Stem   : {CURRENT_YEAR_STEM} (Yang Fire — Bǐng)
+Year Branch : {CURRENT_YEAR_BRANCH} (Fire Horse — Wǔ)
+Context     : {CURRENT_YEAR_NOTE}
 
-Right ear (Yang / regulation / harmonisation):
-  {right_str}
-
-{rationale}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Please write a warm, flowing reading for {name} that covers:
-  1. Their Four Pillars and Day Master nature
-  2. Their Five Element elemental dynamics — strengths, tendencies, and patterns
-  3. A clear, personalised explanation of each ear seed point and why it was chosen
-  4. 2–3 brief supportive wellness suggestions aligned with their constitution
+Please write a warm, flowing reading for {name} covering:
+  1. Their Day Master nature and elemental character
+  2. Their Five Element constitutional picture — strengths, tendencies, and patterns
+  3. How their constitution specifically meets the energy of 2026 (丙午 Yang Fire Horse), \
+with 2–3 grounded, practical wellness suggestions tailored to this interaction
 """
     return msg
