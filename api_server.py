@@ -449,3 +449,30 @@ def get_reading(data: ReadingRequest):
                 headers={
                     "Authorization": f"Bearer {resend_key}",
                     "Content-Type":  "application/json",
+                    "User-Agent":    "resend-python/2.0",
+                    "Accept":        "application/json",
+                },
+                json={
+                    "from":    "Ed Nicholls Acupuncture <readings@readings.ednicholls.com>",
+                    "to":      [data.email],
+                    "subject": f"Your Ba Zi Reading, {data.name}",
+                    "html":    html,
+                },
+            )
+        if resp.status_code >= 400:
+            logger.error(f"Resend error {resp.status_code}: {resp.text}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"Email send error ({resp.status_code}): {resp.text[:300]}",
+            )
+        logger.info(f"Email sent OK: {resp.json()}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Resend unexpected error: {e}")
+        raise HTTPException(status_code=502, detail=f"Email send error: {e}")
+
+    return ReadingResponse(
+        success = True,
+        message = f"Your reading has been sent to {data.email}",
+    )
