@@ -25,12 +25,11 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional
 from datetime import date
 import anthropic
+import httpx
 import os
 import re
 import math
 import json as _json
-import urllib.request
-import urllib.error
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -443,35 +442,10 @@ def get_reading(data: ReadingRequest):
     if not resend_key:
         raise HTTPException(status_code=500, detail="RESEND_API_KEY not configured.")
 
-    payload = _json.dumps({
-        "from":    "Ed Nicholls Acupuncture <readings@readings.ednicholls.com>",
-        "to":      [data.email],
-        "subject": f"Your Ba Zi Reading, {data.name}",
-        "html":    html,
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data    = payload,
-        method  = "POST",
-        headers = {
-            "Authorization": f"Bearer {resend_key}",
-            "Content-Type":  "application/json",
-        },
-    )
     try:
-        with urllib.request.urlopen(req) as resp:
-            result = _json.loads(resp.read())
-            logger.info(f"Email sent OK: {result}")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        logger.error(f"Resend HTTP error {e.code}: {body}")
-        raise HTTPException(status_code=502, detail=f"Email send error ({e.code}): {body}")
-    except Exception as e:
-        logger.error(f"Resend unexpected error: {e}")
-        raise HTTPException(status_code=502, detail=f"Email send error: {e}")
-
-    return ReadingResponse(
-        success = True,
-        message = f"Your reading has been sent to {data.email}",
-    )
+        with httpx.Client(timeout=30) as client:
+            resp = client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_key}",
+                    "Content-Type":  "application/json",
