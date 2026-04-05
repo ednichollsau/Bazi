@@ -25,10 +25,16 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional
 from datetime import date
 import anthropic
-import resend
 import os
 import re
 import math
+import json as _json
+import urllib.request
+import urllib.error
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from bazi_calculator import (
     get_four_pillars,
@@ -413,6 +419,7 @@ def get_reading(data: ReadingRequest):
     if not api_key:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
 
+    logger.info(f"Calling Claude for {data.name}...")
     client = anthropic.Anthropic(api_key=api_key)
     try:
         message = client.messages.create(
@@ -422,27 +429,46 @@ def get_reading(data: ReadingRequest):
             messages   = [{"role": "user", "content": user_message}],
         )
         reading_text = message.content[0].text
+        logger.info("Claude response received OK")
     except Exception as e:
+        logger.error(f"Claude API error: {e}")
         raise HTTPException(status_code=502, detail=f"Claude API error: {e}")
 
     # 5. Build email
     pillars_for_email = {k: (s, b) for k, (s, b) in pillars.items()}
     html = _build_email(data.name, pillars_for_email, constitution, reading_text)
 
-    # 6. Send via Resend
+    # 6. Send via Resend REST API
     resend_key = os.environ.get("RESEND_API_KEY")
     if not resend_key:
         raise HTTPException(status_code=500, detail="RESEND_API_KEY not configured.")
 
-    resend.api_key = resend_key
+    payload = _json.dumps({
+        "from":    "Ed Nicholls Acupuncture <readings@readings.ednicholls.com>",
+        "to":      [data.email],
+        "subject": f"Your Ba Zi Reading, {data.name}",
+        "html":    html,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data    = payload,
+        method  = "POST",
+        headers = {
+            "Authorization": f"Bearer {resend_key}",
+            "Content-Type":  "application/json",
+        },
+    )
     try:
-        resend.Emails.send({
-            "from":    "Ed Nicholls Acupuncture <readings@readings.ednicholls.com>",
-            "to":      [data.email],
-            "subject": f"Your Ba Zi Reading, {data.name}",
-            "html":    html,
-        })
+        with urllib.request.urlopen(req) as resp:
+            result = _json.loads(resp.read())
+            logger.info(f"Email sent OK: {result}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        logger.error(f"Resend HTTP error {e.code}: {body}")
+        raise HTTPException(status_code=502, detail=f"Email send error ({e.code}): {body}")
     except Exception as e:
+        logger.error(f"Resend unexpected error: {e}")
         raise HTTPException(status_code=502, detail=f"Email send error: {e}")
 
     return ReadingResponse(
