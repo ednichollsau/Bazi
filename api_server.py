@@ -437,7 +437,7 @@ def get_reading(data: ReadingRequest):
     resend.api_key = resend_key
     try:
         resend.Emails.send({
-            "from":    "Ed Nicholls Acupuncture <acu@ednicholls.com>",
+            "from":    "Ed Nicholls Acupuncture <readings@readings.ednicholls.com>",
             "to":      [data.email],
             "subject": f"Your Ba Zi Reading, {data.name}",
             "html":    html,
