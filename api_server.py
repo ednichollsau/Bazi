@@ -163,7 +163,7 @@ def _pentagon_svg(constitution: dict) -> str:
         state = constitution.get(elem, "")
         labels += (
             f'<text x="{px:.1f}" y="{py-6:.1f}" text-anchor="{anchor}" '
-            f'font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="700" '
+            f'font-family="\'Cormorant Garamond\',Georgia,serif" font-size="10" font-weight="700" '
             f'letter-spacing="1.2" fill="{col}">{elem.upper()}</text>'
             f'<text x="{px:.1f}" y="{py+8:.1f}" text-anchor="{anchor}" '
             f'font-family="Georgia,serif" font-size="11" font-style="italic" '
@@ -201,7 +201,7 @@ def _pillar_cards_html(pillars: dict) -> str:
         pin   = f"{STEM_PIN.get(stem, stem)}–{BRANCH_PIN.get(branch, branch)}"
         is_day = lbl == "Day"
         day_tag = (
-            '<p style="margin:6px 0 0;font-family:Arial,Helvetica,sans-serif;'
+            '<p style="margin:6px 0 0;font-family:'Cormorant Garamond',Georgia,serif;'
             'font-size:7px;font-weight:700;letter-spacing:0.15em;background:#3D5A4C;'
             'color:#FAF3E4;padding:2px 6px;display:inline-block;">DAY MASTER</p>'
             if is_day else ""
@@ -211,13 +211,13 @@ def _pillar_cards_html(pillars: dict) -> str:
             f'<table width="100%" cellpadding="0" cellspacing="0" style="'
             f'background:#FAF3E4;border:1px solid #E0D5C1;border-top:3px solid {col};">'
             f'<tr><td style="padding:16px 10px 14px;text-align:center;">'
-            f'<p style="margin:0 0 10px;font-family:Arial,Helvetica,sans-serif;font-size:8px;'
+            f'<p style="margin:0 0 10px;font-family:'Cormorant Garamond',Georgia,serif;font-size:8px;'
             f'font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:#8B6F5C;">{lbl}</p>'
             f'<p style="margin:0 0 6px;font-size:28px;line-height:1.15;color:#2C1A0E;'
             f'font-family:serif;">{stem}<br>{branch}</p>'
             f'<p style="margin:0 0 8px;font-family:Georgia,serif;font-size:11px;'
             f'font-style:italic;color:#8B6F5C;">{pin}</p>'
-            f'<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:8px;'
+            f'<p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-size:8px;'
             f'font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{col};">'
             f'&#9679; {elem}</p>'
             f'{day_tag}'
@@ -253,7 +253,7 @@ def _parse_reading_html(text: str) -> tuple[str, str]:
             heading = t[3:].strip().title()
             body_html += (
                 f'<tr><td style="padding:28px 0 10px;">'
-                f'<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:10px;'
+                f'<p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-size:10px;'
                 f'font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:{GRN};">'
                 f'{heading}</p>'
                 f'<div style="width:24px;height:1px;background:{GRN};margin-top:7px;opacity:0.7;"></div>'
@@ -301,6 +301,12 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Your Ba Zi Reading, {name}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Raleway:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Raleway:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+  </style>
 </head>
 <body style="margin:0;padding:0;background-color:{CRD};-webkit-text-size-adjust:100%;mso-line-height-rule:exactly;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
@@ -312,15 +318,15 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
       <!-- HEADER -->
       <tr><td style="padding:50px 48px 38px;text-align:center;border-bottom:1px solid {BDR};">
-        <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:9px;
+        <p style="margin:0 0 12px;font-family:'Cormorant Garamond',Georgia,serif;font-size:9px;
                   letter-spacing:0.35em;text-transform:uppercase;color:{GRN};">
           Bespoke Ba Zi Reading
         </p>
-        <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;
-                   font-size:36px;font-weight:400;color:{BR};line-height:1.2;">
+        <h1 style="margin:0 0 12px;font-family:'Cormorant Garamond',Georgia,serif;
+                   font-size:36px;font-weight:300;color:{BR};line-height:1.2;">
           {name}
         </h1>
-        <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:9px;
+        <p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-size:9px;
                   letter-spacing:0.18em;text-transform:uppercase;color:{BRL};">
           Four Pillars of Destiny &nbsp;&middot;&nbsp; Elemental Constitution &nbsp;&middot;&nbsp; 2026
         </p>
@@ -328,7 +334,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
       <!-- FOUR PILLARS -->
       <tr><td style="padding:36px 48px 0;">
-        <p style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:9px;
+        <p style="margin:0 0 18px;font-family:'Cormorant Garamond',Georgia,serif;font-size:9px;
                   font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:{BRL};">
           Your Four Pillars
         </p>
@@ -342,7 +348,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
       <!-- FIVE ELEMENT BALANCE -->
       <tr><td style="padding:32px 48px 0;">
-        <p style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:9px;
+        <p style="margin:0 0 20px;font-family:'Cormorant Garamond',Georgia,serif;font-size:9px;
                   font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:{BRL};">
           Five Element Balance
         </p>
@@ -364,11 +370,11 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
       <!-- FOOTER -->
       <tr><td style="padding:40px 48px;margin-top:32px;border-top:1px solid {BDR};text-align:center;">
-        <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:9px;
+        <p style="margin:0 0 6px;font-family:'Cormorant Garamond',Georgia,serif;font-size:9px;
                   letter-spacing:0.2em;text-transform:uppercase;color:{BRL};">
           Ed Nicholls Acupuncture &nbsp;&middot;&nbsp; ednicholls.com
         </p>
-        <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:9px;
+        <p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-size:9px;
                   color:{BRL};letter-spacing:0.05em;">
           This reading is offered as a complementary wellness guide, not a substitute for medical advice.
         </p>
