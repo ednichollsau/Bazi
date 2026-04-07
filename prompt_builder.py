@@ -132,6 +132,7 @@ def build_user_message(
     is_balanced:  bool,
     weakest:      str,
     strongest:    str,
+    hour_known:   bool = True,
 ) -> str:
     """
     Construct the user-turn message sent to Claude.
@@ -140,11 +141,13 @@ def build_user_message(
     ----------
     name          : Person's preferred name.
     pillars       : Output of get_four_pillars() — dict of pillar → (stem, branch).
+                    Hour pillar will be absent if hour_known is False.
     constitution  : Output of interpret_constitution() — dict of element → state.
     spread        : Imbalance score 0–3 from spread_score().
     is_balanced   : Boolean from is_balanced().
     weakest       : Name of the weakest element.
     strongest     : Name of the strongest element.
+    hour_known    : Whether the birth hour was provided.
     """
     day_stem, day_branch = pillars["Day"]
     day_stem_idx = STEMS.index(day_stem)
@@ -182,9 +185,9 @@ Name       : {name}
 Day Master : {day_master_label}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FOUR PILLARS  (年柱 月柱 日柱 时柱)
+{"FOUR PILLARS  (年柱 月柱 日柱 时柱)" if hour_known else "THREE PILLARS  (年柱 月柱 日柱 — Hour unknown)"}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{pillar_block}
+{pillar_block}{"" if hour_known else chr(10) + "  Hour  : Unknown — analysis based on Year, Month, and Day pillars only."}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FIVE ELEMENT CONSTITUTION
