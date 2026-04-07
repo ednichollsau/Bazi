@@ -98,7 +98,7 @@ class ReadingRequest(BaseModel):
     year:  int           = Field(..., ge=1900, le=2100)
     month: int           = Field(..., ge=1,    le=12)
     day:   int           = Field(..., ge=1,    le=31)
-    hour:  Optional[int] = Field(default=None, ge=0, le=23)
+    hour:  Optional[int] = Field(default=None)
 
     @validator("year")
     def not_future(cls, v):
@@ -397,6 +397,8 @@ def get_reading(data: ReadingRequest):
 
     # 1. Four Pillars
     hour_known = data.hour is not None
+    if hour_known and not (0 <= data.hour <= 23):
+        raise HTTPException(status_code=422, detail="Hour must be between 0 and 23.")
     calc_hour  = data.hour if hour_known else 12  # noon placeholder for calc only
     try:
         pillars = get_four_pillars(data.year, data.month, data.day, calc_hour)
