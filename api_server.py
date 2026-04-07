@@ -98,7 +98,7 @@ class ReadingRequest(BaseModel):
     year:  int           = Field(..., ge=1900, le=2100)
     month: int           = Field(..., ge=1,    le=12)
     day:   int           = Field(..., ge=1,    le=31)
-    hour:  int           = Field(..., ge=0,    le=23)
+    hour:  Optional[int] = Field(default=None, ge=0, le=23)
 
     @validator("year")
     def not_future(cls, v):
@@ -193,9 +193,11 @@ def _pentagon_svg(constitution: dict) -> str:
 
 
 def _pillar_cards_html(pillars: dict) -> str:
-    """Render the four pillar cards as an email-safe HTML table."""
+    """Render pillar cards as an email-safe HTML table. Hour omitted if unknown."""
+    labels = [l for l in ["Year", "Month", "Day", "Hour"] if l in pillars]
+    width  = 100 // len(labels)
     cells = ""
-    for lbl in ["Year", "Month", "Day", "Hour"]:
+    for lbl in labels:
         stem, branch = pillars[lbl]
         elem  = STEM_ELEM.get(stem, "")
         col   = ELEM_HEX.get(elem, "#8B6F5C")
@@ -208,7 +210,7 @@ def _pillar_cards_html(pillars: dict) -> str:
             if is_day else ""
         )
         cells += (
-            f'<td width="25%" style="padding:0 5px;vertical-align:top;">'
+            f'<td width="{width}%" style="padding:0 5px;vertical-align:top;">'
             f'<table width="100%" cellpadding="0" cellspacing="0" style="'
             f'background:#FAF3E4;border:1px solid #E0D5C1;border-top:3px solid {col};">'
             f'<tr><td style="padding:16px 10px 14px;text-align:center;">'
@@ -394,10 +396,16 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 def get_reading(data: ReadingRequest):
 
     # 1. Four Pillars
+    hour_known = data.hour is not None
+    calc_hour  = data.hour if hour_known else 12  # noon placeholder for calc only
     try:
-        pillars = get_four_pillars(data.year, data.month, data.day, data.hour)
+        pillars = get_four_pillars(data.year, data.month, data.day, calc_hour)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Pillar calculation error: {e}")
+
+    # If hour is unknown, drop it from analysis entirely
+    if not hour_known:
+        pillars.pop("Hour", None)
 
     # 2. Five Element analysis
     counts       = get_element_counts(pillars)
@@ -418,6 +426,7 @@ def get_reading(data: ReadingRequest):
         is_balanced  = balanced,
         weakest      = weakest,
         strongest    = strongest,
+        hour_known   = hour_known,
     )
 
     # 4. Call Claude
