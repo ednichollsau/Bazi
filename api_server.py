@@ -85,6 +85,51 @@ STATE_PCT = {
     "Absent": 5, "Low": 30, "Balanced": 60, "Excess": 100,
 }
 
+BRANCH_ANIMAL = {
+    "子": "Rat",  "丑": "Ox",    "寅": "Tiger",   "卯": "Rabbit",
+    "辰": "Dragon","巳": "Snake", "午": "Horse",   "未": "Goat",
+    "申": "Monkey","酉": "Rooster","戌": "Dog",    "亥": "Pig",
+}
+
+ANIMAL_TRAIT = {
+    "Rat":     "resourceful, quick-witted and endlessly adaptive",
+    "Ox":      "steadfast, patient and quietly powerful",
+    "Tiger":   "courageous, dynamic and fiercely independent",
+    "Rabbit":  "perceptive, diplomatic and deeply intuitive",
+    "Dragon":  "magnetic, bold and driven by vision",
+    "Snake":   "wise, discerning and naturally strategic",
+    "Horse":   "free-spirited, expressive and driven by passion",
+    "Goat":    "gentle, creative and deeply empathic",
+    "Monkey":  "inventive, versatile and endlessly curious",
+    "Rooster": "observant, precise and confidently direct",
+    "Dog":     "loyal, principled and trustworthy to the core",
+    "Pig":     "generous, sincere and quietly determined",
+}
+
+ELEM_QUALITY = {
+    "Wood":  "growth, vision and the courage to begin",
+    "Fire":  "passion, warmth and the power to illuminate",
+    "Earth": "stability, nurture and the wisdom to endure",
+    "Metal": "clarity, precision and the will to refine",
+    "Water": "depth, flow and the intelligence to adapt",
+}
+
+# Element-specific banner themes for email
+ZODIAC_THEME_EMAIL = {
+    "Wood":  {"bg": "#182414", "text": "#F0EBE0", "accent": "#7DAA7D"},
+    "Fire":  {"bg": "#27120E", "text": "#FFF0E8", "accent": "#CC7060"},
+    "Earth": {"bg": "#231A09", "text": "#FFF5E0", "accent": "#D4A840"},
+    "Metal": {"bg": "#181F24", "text": "#EFF2F4", "accent": "#8AAAB0"},
+    "Water": {"bg": "#0E1825", "text": "#EAF0F8", "accent": "#6A96BE"},
+}
+
+PILLAR_AREA_DESC = {
+    "Year":  "holds the energy of your ancestry, early formation, and the world you came from.",
+    "Month": "governs your career, public life, and how you engage with society.",
+    "Day":   "is the most personal pillar — your inner character, and how you love and relate.",
+    "Hour":  "illuminates your deeper aspirations, creativity, and the legacy you are building.",
+}
+
 TIP_META = {
     "NOURISH": {"label": "Nourish",  "col": "#6B8F6B"},
     "MOVE":    {"label": "Move",     "col": "#B85C4A"},
@@ -152,7 +197,7 @@ def _pillar_cards_html(pillars: dict) -> str:
             'font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:#8B6F5C;">' + lbl + '</p>'
             '<p style="margin:0 0 8px;font-size:28px;line-height:1.15;color:#2C1A0E;font-family:serif;">'
             + stem + '<br>' + branch + '</p>'
-            '<p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;'
+            '<p style="margin:0 0 4px;font-family:Raleway,Arial,sans-serif;font-size:11px;'
             'font-style:italic;color:#8B6F5C;">' + pin + '</p>'
             '<p style="margin:0 0 6px;font-family:Raleway,Arial,sans-serif;font-size:8px;'
             'font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + col + ';">'
@@ -187,13 +232,80 @@ def _element_bars_html(constitution: dict) -> str:
             '<td style="height:6px;background:#E0D5C1;border-radius:0 3px 3px 0;" bgcolor="#E0D5C1">&nbsp;</td>'
             '</tr></table></td>'
             '<td width="90" style="padding:7px 0 7px 14px;vertical-align:middle;text-align:right;">'
-            '<p style="margin:0;font-family:Georgia,serif;font-size:11px;'
+            '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:11px;'
             'font-style:italic;color:#8B6F5C;">' + state + '</p>'
             '<p style="margin:2px 0 0;font-family:Raleway,Arial,sans-serif;font-size:9px;'
             'color:#A08470;">' + desc + '</p>'
             '</td></tr>'
         )
     return '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">' + rows + '</table>'
+
+
+def _zodiac_banner_html(pillars: dict) -> str:
+    year_pillar = pillars.get("Year")
+    if not year_pillar:
+        return ""
+    stem, branch = year_pillar[0], year_pillar[1]
+    elem   = STEM_ELEM.get(stem, "")
+    animal = BRANCH_ANIMAL.get(branch, "")
+    if not elem or not animal:
+        return ""
+    theme    = ZODIAC_THEME_EMAIL.get(elem, ZODIAC_THEME_EMAIL["Wood"])
+    stem_pin = STEM_PIN.get(stem, stem)
+    br_pin   = BRANCH_PIN.get(branch, branch)
+    trait    = (
+        "The " + elem + " " + animal + " carries the energy of "
+        + ELEM_QUALITY.get(elem, elem.lower())
+        + ", expressed through a "
+        + ANIMAL_TRAIT.get(animal, "deeply individual")
+        + " spirit."
+    )
+    return (
+        '<tr><td style="background:' + theme["bg"] + ';padding:40px 48px 36px;text-align:center;">'
+        '<p style="margin:0 0 12px;font-family:Raleway,Arial,sans-serif;font-size:8px;'
+        'letter-spacing:0.32em;text-transform:uppercase;color:' + theme["accent"] + ';">'
+        'Your Year Sign</p>'
+        '<h2 style="margin:0 0 10px;font-family:Raleway,Arial,sans-serif;font-size:36px;'
+        'font-weight:300;letter-spacing:0.2em;text-transform:uppercase;color:' + theme["text"] + ';line-height:1.1;">'
+        + elem + ' ' + animal + '</h2>'
+        '<p style="margin:0 0 16px;font-family:Raleway,Arial,sans-serif;font-size:15px;'
+        'letter-spacing:0.18em;color:' + theme["accent"] + ';">'
+        + stem + branch + ' &nbsp;&middot;&nbsp; ' + stem_pin + ' ' + br_pin + '</p>'
+        '<div style="width:32px;height:1px;background:' + theme["accent"] + ';opacity:0.4;margin:0 auto 16px;"></div>'
+        '<p style="margin:0 auto;font-family:Raleway,Arial,sans-serif;font-size:13px;'
+        'font-style:italic;font-weight:300;color:' + theme["text"] + ';opacity:0.85;'
+        'max-width:420px;line-height:1.8;">' + trait + '</p>'
+        '</td></tr>'
+    )
+
+
+def _pillar_prose_html(pillars: dict, BRL: str) -> str:
+    order = ["Year", "Month", "Day", "Hour"]
+    lines = []
+    for key in order:
+        p = pillars.get(key)
+        if not p:
+            continue
+        stem = p[0]
+        elem = STEM_ELEM.get(stem, "")
+        col  = ELEM_HEX.get(elem, "#8B6F5C")
+        desc = PILLAR_AREA_DESC.get(key, "")
+        lines.append(
+            '<span style="font-weight:600;color:' + col + ';">' + key
+            + ' <span style="font-size:16px;">' + stem + '</span>'
+            + ' (' + elem + ')</span>'
+            + ' <em>— ' + desc + '</em>'
+        )
+    separator = (
+        '<div style="width:100%;height:1px;background:#E0D5C1;margin:8px 0;"></div>'
+    )
+    return (
+        '<tr><td style="padding:16px 0 0;">'
+        '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:13px;'
+        'line-height:2.0;color:#6B4C36;">'
+        + separator.join(lines)
+        + '</p></td></tr>'
+    )
 
 
 def _tip_icon_svg(tag: str, col: str) -> str:
@@ -296,7 +408,7 @@ def _render_section_html(heading: str, content: str, GRN: str, BR: str) -> str:
         text = p.replace("\n", "<br>")
         para_html += (
             '<tr><td style="padding:0 0 14px;">'
-            '<p style="margin:0;font-family:Georgia,serif;font-size:15px;'
+            '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:15px;'
             'line-height:1.85;color:' + BR + ';">' + text + '</p>'
             '</td></tr>'
         )
@@ -327,7 +439,7 @@ def _build_tips_html(tip_lines: list) -> str:
             '<p style="margin:0 0 4px;font-family:Raleway,Arial,sans-serif;font-size:8px;'
             'font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:' + col + ';">'
             + lbl + '</p>'
-            '<p style="margin:0;font-family:Georgia,serif;font-size:14px;'
+            '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:14px;'
             'line-height:1.7;color:#2C1A0E;">' + text + '</p>'
             '</td></tr></table></td></tr>'
         )
@@ -340,7 +452,7 @@ def _render_conclusion_html(text: str, GRN: str, BR: str, CR: str) -> str:
     return (
         '<tr><td style="padding:28px 0 0;">'
         '<div style="background:' + CR + ';border-left:2px solid ' + GRN + ';padding:24px 28px;">'
-        '<p style="margin:0;font-family:Georgia,serif;font-size:15px;'
+        '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:15px;'
         'font-style:italic;line-height:1.9;color:' + BR + ';">' + text + '</p>'
         '</div></td></tr>'
     )
@@ -349,6 +461,8 @@ def _render_conclusion_html(text: str, GRN: str, BR: str, CR: str) -> str:
 def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str) -> str:
     pillar_tbl             = _pillar_cards_html(pillars)
     elem_bars              = _element_bars_html(constitution)
+    zodiac_row             = _zodiac_banner_html(pillars)
+    pillar_prose_row       = _pillar_prose_html(pillars, "#8B6F5C")
     body_html, tips_html, conclusion_html = _parse_reading_v2(reading_text)
 
     CR  = "#FAF3E4"
@@ -366,7 +480,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
   <title>Your Ba Zi Reading, """ + name + """</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Raleway:wght@300;400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 </head>
 <body style="margin:0;padding:0;background-color:""" + CRD + """;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:""" + CRD + """;">
@@ -388,13 +502,15 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
     </p>
   </td></tr>
 
+  """ + zodiac_row + """
+
   <!-- WHAT ARE THE FOUR PILLARS? -->
   <tr><td style="padding:32px 48px 24px;background:#F7F0E4;border-bottom:1px solid """ + BDR + """;">
     <p style="margin:0 0 8px;font-family:Raleway,Arial,sans-serif;font-size:9px;
               font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:""" + BRL + """;">
       What are the Four Pillars?
     </p>
-    <p style="margin:0;font-family:Georgia,serif;font-size:13px;line-height:1.75;color:#6B4C36;">
+    <p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:13px;line-height:1.75;color:#6B4C36;">
       In Chinese cosmology, your birth date isn&#39;t just a number — it&#39;s a map. Each pillar
       (year, month, day, and hour) translates into a pair of elemental energies, revealing the
       forces that shape your character, purpose, and path. The <strong>Day Master</strong> —
@@ -409,6 +525,9 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
       Your Four Pillars
     </p>
     """ + pillar_tbl + """
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      """ + pillar_prose_row + """
+    </table>
   </td></tr>
 
   <!-- DIVIDER -->
@@ -420,7 +539,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
               font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:""" + BRL + """;">
       What are the Five Elements?
     </p>
-    <p style="margin:0;font-family:Georgia,serif;font-size:13px;line-height:1.75;color:#6B4C36;">
+    <p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:13px;line-height:1.75;color:#6B4C36;">
       Wood, Fire, Earth, Metal, and Water are not just materials — they&#39;re qualities of energy
       present in everything, including you. Your chart shows how much of each element you carry.
       Too much or too little of any one element creates patterns you&#39;ll recognise in your body,
@@ -547,10 +666,13 @@ def get_reading(data: ReadingRequest):
         logger.error("Claude API error: %s", e)
         raise HTTPException(status_code=502, detail=f"Claude API error: {e}")
 
-    # 6. Build email
+    # 6. Log email address to Google Sheets (non-fatal)
+    _log_to_sheets(data.name, data.email)
+
+    # 7. Build email
     html = _build_email(data.name, pillars, constitution, reading_text)
 
-    # 7. Send via Resend
+    # 8. Send via Resend
     resend_key = os.environ.get("RESEND_API_KEY")
     if not resend_key:
         raise HTTPException(status_code=500, detail="RESEND_API_KEY not configured.")
