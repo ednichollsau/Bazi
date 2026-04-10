@@ -111,8 +111,12 @@ class ReadingRequest(BaseModel):
         return v
 
 class ReadingResponse(BaseModel):
-    success: bool
-    message: str
+    success:      bool
+    message:      str
+    name:         Optional[str]  = None
+    pillars_data: Optional[dict] = None   # {"Year": ["甲","子"], ...}
+    constitution: Optional[dict] = None   # {"Wood": "Strong", ...}
+    reading_text: Optional[str]  = None   # raw Claude output for on-page render
 
 # ── Health ─────────────────────────────────────────────────
 
@@ -586,6 +590,10 @@ def get_reading(data: ReadingRequest):
     _log_to_sheets(data.name, data.email)
 
     return ReadingResponse(
-        success=True,
-        message="Your reading has been sent to " + data.email,
+        success      = True,
+        message      = "Your reading has been sent to " + data.email,
+        name         = data.name,
+        pillars_data = {k: list(v) for k, v in pillars.items()},
+        constitution = constitution,
+        reading_text = reading_text,
     )
