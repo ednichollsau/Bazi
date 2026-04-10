@@ -75,15 +75,14 @@ PILLAR_LABEL = {
 }
 
 STATE_DESC = {
-    "Absent":   "rarely present",
-    "Weak":     "gently present",
+    "Absent":   "not present",
+    "Low":      "gently present",
     "Balanced": "in good flow",
-    "Strong":   "a real strength",
     "Excess":   "very dominant",
 }
 
 STATE_PCT = {
-    "Absent": 10, "Weak": 28, "Balanced": 55, "Strong": 78, "Excess": 100,
+    "Absent": 5, "Low": 30, "Balanced": 60, "Excess": 100,
 }
 
 TIP_META = {
@@ -140,7 +139,7 @@ def _pillar_cards_html(pillars: dict) -> str:
         day_tag = ""
         if is_day:
             day_tag = (
-                '<p style="margin:8px 0 0;font-family:Cormorant Garamond,Georgia,serif;'
+                '<p style="margin:8px 0 0;font-family:Raleway,Arial,sans-serif;'
                 'font-size:7px;font-weight:700;letter-spacing:0.15em;background:#3D5A4C;'
                 'color:#FAF3E4;padding:3px 7px;display:inline-block;">DAY MASTER</p>'
             )
@@ -149,13 +148,13 @@ def _pillar_cards_html(pillars: dict) -> str:
             '<table width="100%" cellpadding="0" cellspacing="0" style="'
             'background:#FAF3E4;border:1px solid #E0D5C1;border-top:3px solid ' + col + ';">'
             '<tr><td style="padding:16px 10px 14px;text-align:center;">'
-            '<p style="margin:0 0 6px;font-family:Cormorant Garamond,Georgia,serif;font-size:8px;'
+            '<p style="margin:0 0 6px;font-family:Raleway,Arial,sans-serif;font-size:8px;'
             'font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:#8B6F5C;">' + lbl + '</p>'
             '<p style="margin:0 0 8px;font-size:28px;line-height:1.15;color:#2C1A0E;font-family:serif;">'
             + stem + '<br>' + branch + '</p>'
             '<p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;'
             'font-style:italic;color:#8B6F5C;">' + pin + '</p>'
-            '<p style="margin:0 0 6px;font-family:Cormorant Garamond,Georgia,serif;font-size:8px;'
+            '<p style="margin:0 0 6px;font-family:Raleway,Arial,sans-serif;font-size:8px;'
             'font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + col + ';">'
             '&#9679; ' + elem + '</p>'
             '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:9px;'
@@ -178,7 +177,7 @@ def _element_bars_html(constitution: dict) -> str:
         rows += (
             '<tr>'
             '<td width="60" style="padding:7px 12px 7px 0;vertical-align:middle;">'
-            '<p style="margin:0;font-family:Cormorant Garamond,Georgia,serif;font-size:9px;'
+            '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:9px;'
             'font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:' + col + ';">'
             + elem + '</p></td>'
             '<td style="padding:7px 0;vertical-align:middle;">'
@@ -285,7 +284,7 @@ def _parse_reading_v2(text: str) -> tuple:
 def _render_section_html(heading: str, content: str, GRN: str, BR: str) -> str:
     heading_html = (
         '<tr><td style="padding:28px 0 12px;">'
-        '<p style="margin:0;font-family:Cormorant Garamond,Georgia,serif;font-size:10px;'
+        '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:10px;'
         'font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:' + GRN + ';">'
         + heading + '</p>'
         '<div style="width:24px;height:1px;background:' + GRN + ';margin-top:8px;opacity:0.6;"></div>'
@@ -325,7 +324,7 @@ def _build_tips_html(tip_lines: list) -> str:
             + icon +
             '</td>'
             '<td style="padding:14px 18px 14px 12px;vertical-align:top;">'
-            '<p style="margin:0 0 4px;font-family:Cormorant Garamond,Georgia,serif;font-size:8px;'
+            '<p style="margin:0 0 4px;font-family:Raleway,Arial,sans-serif;font-size:8px;'
             'font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:' + col + ';">'
             + lbl + '</p>'
             '<p style="margin:0;font-family:Georgia,serif;font-size:14px;'
@@ -377,11 +376,11 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
   <!-- HEADER -->
   <tr><td style="padding:50px 48px 38px;text-align:center;border-bottom:1px solid """ + BDR + """;">
-    <p style="margin:0 0 12px;font-family:Cormorant Garamond,Georgia,serif;font-size:9px;
+    <p style="margin:0 0 12px;font-family:Raleway,Arial,sans-serif;font-size:9px;
               letter-spacing:0.35em;text-transform:uppercase;color:""" + GRN + """;">
       Ba Zi · Elemental Constitution · 2026
     </p>
-    <h1 style="margin:0 0 10px;font-family:Cormorant Garamond,Georgia,serif;
+    <h1 style="margin:0 0 10px;font-family:Raleway,Arial,sans-serif;
                font-size:38px;font-weight:300;color:""" + BR + """;line-height:1.2;">""" + name + """</h1>
     <p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:10px;
               letter-spacing:0.12em;color:""" + BRL + """;">
@@ -391,7 +390,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
   <!-- WHAT ARE THE FOUR PILLARS? -->
   <tr><td style="padding:32px 48px 24px;background:#F7F0E4;border-bottom:1px solid """ + BDR + """;">
-    <p style="margin:0 0 8px;font-family:Cormorant Garamond,Georgia,serif;font-size:9px;
+    <p style="margin:0 0 8px;font-family:Raleway,Arial,sans-serif;font-size:9px;
               font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:""" + BRL + """;">
       What are the Four Pillars?
     </p>
@@ -405,7 +404,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
   <!-- FOUR PILLARS -->
   <tr><td style="padding:32px 48px 0;">
-    <p style="margin:0 0 18px;font-family:Cormorant Garamond,Georgia,serif;font-size:9px;
+    <p style="margin:0 0 18px;font-family:Raleway,Arial,sans-serif;font-size:9px;
               font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:""" + BRL + """;">
       Your Four Pillars
     </p>
@@ -417,7 +416,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
   <!-- WHAT ARE THE FIVE ELEMENTS? -->
   <tr><td style="padding:28px 48px 20px;background:#F7F0E4;border-top:0;border-bottom:1px solid """ + BDR + """;">
-    <p style="margin:0 0 8px;font-family:Cormorant Garamond,Georgia,serif;font-size:9px;
+    <p style="margin:0 0 8px;font-family:Raleway,Arial,sans-serif;font-size:9px;
               font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:""" + BRL + """;">
       What are the Five Elements?
     </p>
@@ -431,7 +430,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
   <!-- FIVE ELEMENT BARS -->
   <tr><td style="padding:28px 48px 0;">
-    <p style="margin:0 0 18px;font-family:Cormorant Garamond,Georgia,serif;font-size:9px;
+    <p style="margin:0 0 18px;font-family:Raleway,Arial,sans-serif;font-size:9px;
               font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:""" + BRL + """;">
       Your Elemental Make-up
     </p>
@@ -452,7 +451,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
 
   <!-- FOOTER -->
   <tr><td style="padding:40px 48px;border-top:1px solid """ + BDR + """;text-align:center;margin-top:32px;">
-    <p style="margin:0 0 6px;font-family:Cormorant Garamond,Georgia,serif;font-size:9px;
+    <p style="margin:0 0 6px;font-family:Raleway,Arial,sans-serif;font-size:9px;
               letter-spacing:0.2em;text-transform:uppercase;color:""" + BRL + """;">
       Ed Nicholls Acupuncture &nbsp;&middot;&nbsp; ednicholls.com
     </p>
