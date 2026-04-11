@@ -123,11 +123,36 @@ ZODIAC_THEME_EMAIL = {
     "Water": {"bg": "#0E1825", "text": "#EAF0F8", "accent": "#6A96BE"},
 }
 
-PILLAR_AREA_DESC = {
-    "Year":  "holds the energy of your ancestry, early formation, and the world you came from.",
-    "Month": "governs your career, public life, and how you engage with society.",
-    "Day":   "is the most personal pillar — your inner character, and how you love and relate.",
-    "Hour":  "illuminates your deeper aspirations, creativity, and the legacy you are building.",
+# Element-specific descriptions per pillar position — personalised, not generic area labels
+PILLAR_ELEM_DESC = {
+    "Year": {
+        "Wood":  "Wood in your Year pillar speaks of growth-seeking roots — a lineage that valued expansion, learning, and creative endeavour. You were shaped early by movement and becoming.",
+        "Fire":  "Fire in your Year pillar illuminates a passionate, expressive foundation — early life charged with warmth, intensity, or bold transformation. You carry a vivid origin story.",
+        "Earth": "Earth in your Year pillar grounds you in a stable, enduring lineage — roots defined by reliability, nourishment, and quiet persistence. Your foundation is solid, even if it sometimes felt heavy.",
+        "Metal": "Metal in your Year pillar marks a foundation shaped by precision and high standards — a lineage that valued order and refinement. Discernment was learned early here.",
+        "Water": "Water in your Year pillar connects you to a deep, adaptable ancestry — roots drawn from intuition, wisdom, or continual movement and change. You carry an old knowing that predates memory.",
+    },
+    "Month": {
+        "Wood":  "Wood in the Month position gives your professional life a drive to grow. You work best when initiating, expanding, or nurturing something new — stagnation is your true occupational hazard.",
+        "Fire":  "Fire in the Month position brings intensity and passion to your outer world. Leadership, visibility, and creative expression are your natural professional territory.",
+        "Earth": "Earth in the Month position makes you a steady, reliable force in your career. Your greatest professional strength is your capacity to sustain, organise, and quietly hold everything together.",
+        "Metal": "Metal in the Month position sharpens your professional self — analytical precision, high standards, and a refined eye for quality define how you engage with the world.",
+        "Water": "Water in the Month position flows through your career as depth and adaptability. You read environments intuitively and navigate complexity with a fluency others find remarkable.",
+    },
+    "Day": {
+        "Wood":  "Wood is your Day Master — you are, at your core, a being of growth and beginning. You reach toward the light instinctively, and wither without space and direction to expand into.",
+        "Fire":  "Fire is your Day Master — you illuminate every room you enter. Warmth, passion, and expressive intensity define your innermost self and how you give and receive love.",
+        "Earth": "Earth is your Day Master — you are the still point others orbit. Nurturing, stable, and quietly powerful in your ability to hold space and keep things together.",
+        "Metal": "Metal is your Day Master — clarity and refinement are your default mode. You see what others miss, and hold yourself — and those close to you — to exacting, beautiful standards.",
+        "Water": "Water is your Day Master — deeply intuitive and endlessly adaptive, you move through intimate life by feel, often knowing long before you can explain why.",
+    },
+    "Hour": {
+        "Wood":  "Wood in the Hour pillar plants your deepest legacy in growth — you aspire to leave something living and expanding long after you. Vision and new beginnings are your truest purpose.",
+        "Fire":  "Fire in the Hour pillar drives you toward a legacy of impact and illumination — your deepest ambition is to inspire, and to be remembered with warmth and brightness.",
+        "Earth": "Earth in the Hour pillar roots your legacy in nourishment — your deepest dream is to have built something enduring that sustains others long after the effort is forgotten.",
+        "Metal": "Metal in the Hour pillar refines your aspirations toward mastery — you seek a legacy of precision, excellence, and beauty. Your standards are themselves a life's work.",
+        "Water": "Water in the Hour pillar carries your legacy into depth and wisdom — your truest dreams are expansive and philosophical, felt more deeply than they are easily spoken.",
+    },
 }
 
 TIP_META = {
@@ -325,8 +350,12 @@ def _zodiac_banner_html(pillars: dict) -> str:
 
 
 def _pillar_prose_html(pillars: dict, BRL: str) -> str:
+    """
+    Render each pillar as a left-border accent block with element-specific
+    personalised text — no repeated area labels, no horizontal separators.
+    """
     order = ["Year", "Month", "Day", "Hour"]
-    lines = []
+    blocks = ""
     for key in order:
         p = pillars.get(key)
         if not p:
@@ -334,22 +363,39 @@ def _pillar_prose_html(pillars: dict, BRL: str) -> str:
         stem = p[0]
         elem = STEM_ELEM.get(stem, "")
         col  = ELEM_HEX.get(elem, "#8B6F5C")
-        desc = PILLAR_AREA_DESC.get(key, "")
-        lines.append(
-            '<span style="font-weight:600;color:' + col + ';">' + key
-            + ' <span style="font-size:16px;">' + stem + '</span>'
-            + ' (' + elem + ')</span>'
-            + ' <em>— ' + desc + '</em>'
+        pin  = STEM_PIN.get(stem, stem)
+        desc = PILLAR_ELEM_DESC.get(key, {}).get(elem, "")
+        is_day = key == "Day"
+        dm_badge = (
+            '<span style="display:inline-block;font-family:Raleway,Arial,sans-serif;'
+            'font-size:7px;font-weight:700;letter-spacing:0.15em;background:#4A6B5A;'
+            'color:#FAF3E4;padding:2px 7px;vertical-align:middle;margin-left:8px;">'
+            'DAY MASTER</span>'
+        ) if is_day else ""
+        blocks += (
+            '<tr>'
+            # coloured left border cell
+            '<td width="3" style="background:' + col + ';border-radius:2px;" bgcolor="' + col + '">&nbsp;</td>'
+            '<td width="14">&nbsp;</td>'
+            # content cell
+            '<td style="padding:6px 0 16px;">'
+            '<p style="margin:0 0 4px;font-family:Raleway,Arial,sans-serif;font-size:9px;'
+            'font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:' + col + ';">'
+            + key + ' &nbsp;' + stem + '&nbsp; ' + pin
+            + dm_badge
+            + '</p>'
+            '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:13px;'
+            'font-weight:300;font-style:italic;line-height:1.75;color:#6B5740;">'
+            + desc
+            + '</p>'
+            '</td>'
+            '</tr>'
         )
-    separator = (
-        '<div style="width:100%;height:1px;background:#E0D5C1;margin:8px 0;"></div>'
-    )
     return (
-        '<tr><td style="padding:16px 0 0;">'
-        '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:13px;'
-        'line-height:2.0;color:#6B4C36;">'
-        + separator.join(lines)
-        + '</p></td></tr>'
+        '<tr><td style="padding:20px 0 0;" colspan="3">'
+        '<table width="100%" cellpadding="0" cellspacing="6">'
+        + blocks +
+        '</table></td></tr>'
     )
 
 
@@ -745,7 +791,7 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
         '<p style="margin:0 0 20px;font-family:Raleway,Arial,sans-serif;font-size:15px;'
         'font-style:italic;font-weight:300;color:#6B5740;line-height:1.7;">'
         'Ready to go deeper? Book a treatment and bring your reading to life.</p>'
-        '<a href="https://ednicholls.com/treatments" style="display:inline-block;'
+        '<a href="https://www.ednicholls.com/appointments" style="display:inline-block;'
         'font-family:Raleway,Arial,sans-serif;font-size:11px;font-weight:500;'
         'letter-spacing:0.18em;text-transform:uppercase;color:#F5F0E6;'
         'background:#4D5D53;padding:15px 40px;border-radius:32px;text-decoration:none;">'
