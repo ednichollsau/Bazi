@@ -123,35 +123,36 @@ ZODIAC_THEME_EMAIL = {
     "Water": {"bg": "#0E1825", "text": "#EAF0F8", "accent": "#6A96BE"},
 }
 
-# Element-specific descriptions per pillar position — personalised, not generic area labels
+# Element-specific descriptions per pillar position
+# Each is one thread in the constellation — proportionate, contributory, not sweeping
 PILLAR_ELEM_DESC = {
     "Year": {
-        "Wood":  "Wood in your Year pillar speaks of growth-seeking roots — a lineage that valued expansion, learning, and creative endeavour. You were shaped early by movement and becoming.",
-        "Fire":  "Fire in your Year pillar illuminates a passionate, expressive foundation — early life charged with warmth, intensity, or bold transformation. You carry a vivid origin story.",
-        "Earth": "Earth in your Year pillar grounds you in a stable, enduring lineage — roots defined by reliability, nourishment, and quiet persistence. Your foundation is solid, even if it sometimes felt heavy.",
-        "Metal": "Metal in your Year pillar marks a foundation shaped by precision and high standards — a lineage that valued order and refinement. Discernment was learned early here.",
-        "Water": "Water in your Year pillar connects you to a deep, adaptable ancestry — roots drawn from intuition, wisdom, or continual movement and change. You carry an old knowing that predates memory.",
+        "Wood":  "Wood in the Year position introduces a quality of growth and creative reaching into your origins — a lineage touched by movement, learning, or the instinct to begin again. One generative thread running through the foundation.",
+        "Fire":  "Fire in the Year position lends warmth and intensity to the story you came from — early life touched by passion, visibility, or change. A vivid note in the background of the chart.",
+        "Earth": "Earth in the Year position adds a quality of stability and endurance to your roots — an ancestry shaped by nourishment, reliability, and quiet holding. A steadying thread early in the picture.",
+        "Metal": "Metal in the Year position introduces precision and high standards as context for your formation — a background shaped by order, discernment, or a demand for refinement. One shaping layer among several.",
+        "Water": "Water in the Year position carries depth and adaptability through your origins — a lineage drawn to intuition, wisdom, or continual movement. A quiet current running beneath the surface of the chart.",
     },
     "Month": {
-        "Wood":  "Wood in the Month position gives your professional life a drive to grow. You work best when initiating, expanding, or nurturing something new — stagnation is your true occupational hazard.",
-        "Fire":  "Fire in the Month position brings intensity and passion to your outer world. Leadership, visibility, and creative expression are your natural professional territory.",
-        "Earth": "Earth in the Month position makes you a steady, reliable force in your career. Your greatest professional strength is your capacity to sustain, organise, and quietly hold everything together.",
-        "Metal": "Metal in the Month position sharpens your professional self — analytical precision, high standards, and a refined eye for quality define how you engage with the world.",
-        "Water": "Water in the Month position flows through your career as depth and adaptability. You read environments intuitively and navigate complexity with a fluency others find remarkable.",
+        "Wood":  "Wood in the Month position lends a quality of growth and initiation to how you engage with the outer world. There is a drive to expand and build — most alive professionally when something new is taking root.",
+        "Fire":  "Fire in the Month position brings a quality of intensity and expressiveness to your career — a pull toward visibility or creative output. One active thread in how you meet the world.",
+        "Earth": "Earth in the Month position contributes steadiness and reliability to your professional self — a capacity to sustain, organise, and hold things together. A quality of patient structural strength in this layer.",
+        "Metal": "Metal in the Month position adds a refining quality to your outer world — a professional pull toward clarity, precision, and getting things exactly right. One discerning current in the chart.",
+        "Water": "Water in the Month position introduces depth and adaptability to how you navigate the outer world — a fluid, intuitive reading of environments. One thread in the way you move through complexity.",
     },
     "Day": {
-        "Wood":  "Wood is your Day Master — you are, at your core, a being of growth and beginning. You reach toward the light instinctively, and wither without space and direction to expand into.",
-        "Fire":  "Fire is your Day Master — you illuminate every room you enter. Warmth, passion, and expressive intensity define your innermost self and how you give and receive love.",
-        "Earth": "Earth is your Day Master — you are the still point others orbit. Nurturing, stable, and quietly powerful in your ability to hold space and keep things together.",
-        "Metal": "Metal is your Day Master — clarity and refinement are your default mode. You see what others miss, and hold yourself — and those close to you — to exacting, beautiful standards.",
-        "Water": "Water is your Day Master — deeply intuitive and endlessly adaptive, you move through intimate life by feel, often knowing long before you can explain why.",
+        "Wood":  "Wood as Day Master places a quality of growth and expansiveness at the centre of the chart — a natural orientation toward beginning, reaching, and becoming. This element shapes the core, though it is always in dialogue with everything around it.",
+        "Fire":  "Fire as Day Master lends warmth, expressiveness, and a quality of illumination to the centre of the picture. How you give and receive runs through this element — one defining note within a larger chord.",
+        "Earth": "Earth as Day Master contributes steadiness and a capacity to nourish as central qualities — a natural holding quality in relationships and in self. This grounds the constitution, though the whole picture is more complex.",
+        "Metal": "Metal as Day Master brings a quality of clarity and refinement to the centre of the chart — a discerning, precise quality in how you engage with self and others. One thread that runs through everything, not the whole of it.",
+        "Water": "Water as Day Master lends depth and intuitive adaptability as central qualities — a feeling way of moving through the inner world. A deep current in the chart, always in relationship with the other elements.",
     },
     "Hour": {
-        "Wood":  "Wood in the Hour pillar plants your deepest legacy in growth — you aspire to leave something living and expanding long after you. Vision and new beginnings are your truest purpose.",
-        "Fire":  "Fire in the Hour pillar drives you toward a legacy of impact and illumination — your deepest ambition is to inspire, and to be remembered with warmth and brightness.",
-        "Earth": "Earth in the Hour pillar roots your legacy in nourishment — your deepest dream is to have built something enduring that sustains others long after the effort is forgotten.",
-        "Metal": "Metal in the Hour pillar refines your aspirations toward mastery — you seek a legacy of precision, excellence, and beauty. Your standards are themselves a life's work.",
-        "Water": "Water in the Hour pillar carries your legacy into depth and wisdom — your truest dreams are expansive and philosophical, felt more deeply than they are easily spoken.",
+        "Wood":  "Wood in the Hour position suggests a quality of growth and vision in the private, aspirational layer — a pull toward something living and expansive. The subtlest pillar, and often the most quietly insistent.",
+        "Fire":  "Fire in the Hour position hints at a desire for impact or illumination in the background of ambition — a wish to inspire or to be remembered warmly. A note held gently in the deeper reaches of the chart.",
+        "Earth": "Earth in the Hour position suggests a quality of nourishment and endurance in private aspiration — a wish to have built something that sustains. A grounding note in the more interior layers.",
+        "Metal": "Metal in the Hour position introduces a quality of refinement and mastery into the aspirational layer — a pull toward precision and lasting quality. Subtle, but present throughout.",
+        "Water": "Water in the Hour position carries depth and philosophical breadth into the most private layer of the chart — aspirations that are felt more than spoken, expansive and often hard to articulate.",
     },
 }
 
