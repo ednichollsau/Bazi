@@ -896,9 +896,6 @@ def get_reading(data: ReadingRequest):
         logger.error("Claude API error: %s", e)
         raise HTTPException(status_code=502, detail=f"Claude API error: {e}")
 
-    # 6. Log email address to Google Sheets (non-fatal)
-    _log_to_sheets(data.name, data.email)
-
     # 7. Build email
     html = _build_email(data.name, pillars, constitution, reading_text)
 
