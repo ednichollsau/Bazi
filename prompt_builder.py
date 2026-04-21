@@ -80,9 +80,9 @@ opportunities open up. Keep it grounded and human.
 
 ### Wellness Tips
 
-Write exactly 3 tips. Each tip must start with one of these tags on its own \
+Write exactly 4 tips. Each tip must start with one of these tags on its own \
 line, followed immediately by the tip text. Choose the most fitting tag for \
-each tip:
+each tip — use a different tag for each one:
 
 [NOURISH] A food, drink, or dietary suggestion
 [MOVE] A movement, exercise, or physical practice
@@ -101,7 +101,7 @@ TONE & LENGTH
 – Personal, warm, wonder-filled. Like a letter, not a report.
 – Never assume prior knowledge.
 – Short paragraphs throughout.
-– 550–700 words total across all sections.
+– 600–750 words total across all sections.
 – This is a complementary wellness practice, not medical advice — weave that \
 in naturally, once, without making it feel like a disclaimer.\
 """
@@ -163,7 +163,7 @@ def build_user_message(
     hour_note = "" if hour_known else "\n  Hour   : Unknown — reading based on Year, Month, Day pillars only."
 
     msg = f"""\
-Please write a Ba Zi · Elemental Constitution reading for the following person.
+Please write a Four Pillars · Elemental Constitution reading for the following person.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PERSON
