@@ -1,9 +1,11 @@
 """
-api_server.py  —  Four Pillars · Elemental Constitution API  v3.0
+api_server.py  —  Four Pillars · Elemental Constitution API  v4.0
+Merged: Ba Zi reading + Ear Seed Protocol + PostgreSQL database + Practitioner dashboard
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, validator
 from typing import Optional
 from datetime import date, datetime, timezone
@@ -26,10 +28,12 @@ from bazi_calculator import (
     STATE_RANK,
 )
 from prompt_builder import SYSTEM_PROMPT, build_user_message
+from treatment_protocol import get_protocol, AURICULAR_POINTS
+from database import init_db, save_submission, list_submissions, get_submission, update_notes
 
 # ── App ────────────────────────────────────────────────────
 
-app = FastAPI(title="Four Pillars · Elemental Constitution API", version="3.0.0")
+app = FastAPI(title="Four Pillars · Elemental Constitution API", version="4.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +41,21 @@ app.add_middleware(
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def startup():
+    init_db()
+
+
+# ── Auth helper ────────────────────────────────────────────
+
+DASHBOARD_TOKEN = os.environ.get("DASHBOARD_TOKEN", "")
+
+def _check_token(request: Request) -> bool:
+    token = request.query_params.get("token", "")
+    return bool(DASHBOARD_TOKEN) and token == DASHBOARD_TOKEN
+
 
 # ── Lookup tables ──────────────────────────────────────────
 
@@ -124,7 +143,6 @@ ZODIAC_THEME_EMAIL = {
 }
 
 # Element-specific descriptions per pillar position
-# Each is one thread in the constellation — proportionate, contributory, not sweeping
 PILLAR_ELEM_DESC = {
     "Year": {
         "Wood":  "Wood in the Year position introduces a quality of growth and creative reaching into your origins — a lineage touched by movement, learning, or the instinct to begin again. One generative thread running through the foundation.",
@@ -212,12 +230,13 @@ TIP_ICONS_EMAIL = [
 # ── Request / Response ─────────────────────────────────────
 
 class ReadingRequest(BaseModel):
-    name:  Optional[str] = Field(default="Friend")
-    email: str
-    year:  int  = Field(..., ge=1900, le=2100)
-    month: int  = Field(..., ge=1,    le=12)
-    day:   int  = Field(..., ge=1,    le=31)
-    hour:  Optional[int] = Field(default=None)
+    name:       Optional[str] = Field(default="Friend")
+    email:      str
+    year:       int  = Field(..., ge=1900, le=2100)
+    month:      int  = Field(..., ge=1,    le=12)
+    day:        int  = Field(..., ge=1,    le=31)
+    hour:       Optional[int] = Field(default=None)
+    handedness: Optional[str] = Field(default="right")
 
     @validator("year")
     def not_future(cls, v):
@@ -229,9 +248,9 @@ class ReadingResponse(BaseModel):
     success:      bool
     message:      str
     name:         Optional[str]  = None
-    pillars_data: Optional[dict] = None   # {"Year": ["甲","子"], ...}
-    constitution: Optional[dict] = None   # {"Wood": "Strong", ...}
-    reading_text: Optional[str]  = None   # raw Claude output for on-page render
+    pillars_data: Optional[dict] = None
+    constitution: Optional[dict] = None
+    reading_text: Optional[str]  = None
 
 # ── Health ─────────────────────────────────────────────────
 
@@ -351,10 +370,6 @@ def _zodiac_banner_html(pillars: dict) -> str:
 
 
 def _pillar_prose_html(pillars: dict, BRL: str) -> str:
-    """
-    Render each pillar as a left-border accent block with element-specific
-    personalised text — no repeated area labels, no horizontal separators.
-    """
     order = ["Year", "Month", "Day", "Hour"]
     blocks = ""
     for key in order:
@@ -375,10 +390,8 @@ def _pillar_prose_html(pillars: dict, BRL: str) -> str:
         ) if is_day else ""
         blocks += (
             '<tr>'
-            # coloured left border cell
             '<td width="3" style="background:' + col + ';border-radius:2px;" bgcolor="' + col + '">&nbsp;</td>'
             '<td width="14">&nbsp;</td>'
-            # content cell
             '<td style="padding:6px 0 16px;">'
             '<p style="margin:0 0 4px;font-family:Raleway,Arial,sans-serif;font-size:9px;'
             'font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:' + col + ';">'
@@ -401,7 +414,6 @@ def _pillar_prose_html(pillars: dict, BRL: str) -> str:
 
 
 def _year_chart_email_html(constitution: dict) -> str:
-    """Table-based year chart for email — mirrors the website's yr-chart section."""
     ORDER = ["Wood", "Fire", "Earth", "Metal", "Water"]
     legend = (
         '<tr><td style="padding:0 0 16px;">'
@@ -434,12 +446,10 @@ def _year_chart_email_html(constitution: dict) -> str:
         rows += (
             '<tr><td style="padding:0 0 18px;">'
             '<table width="100%" cellpadding="0" cellspacing="0">'
-            # element label
             '<tr><td colspan="3" style="padding:0 0 5px;">'
             '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:9px;'
             'font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:' + col + ';">'
             + elem + '</p></td></tr>'
-            # constitution bar
             '<tr>'
             '<td width="110" style="vertical-align:middle;padding-right:10px;">'
             '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:7px;'
@@ -456,7 +466,6 @@ def _year_chart_email_html(constitution: dict) -> str:
             'letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:' + col + ';">'
             + state + '</p></td>'
             '</tr>'
-            # year energy bar
             '<tr>'
             '<td width="110" style="vertical-align:middle;padding:4px 10px 0 0;">'
             '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:7px;'
@@ -472,7 +481,6 @@ def _year_chart_email_html(constitution: dict) -> str:
             '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:8px;'
             'font-style:italic;color:#8A7456;">' + yr_tag + '</p></td>'
             '</tr>'
-            # note row
             '<tr><td colspan="3" style="padding:3px 0 0;">'
             '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:10px;'
             'font-style:italic;color:#8A7456;">' + yr_note + '</p>'
@@ -487,7 +495,6 @@ def _year_chart_email_html(constitution: dict) -> str:
 
 
 def _score_tips(text: str) -> list:
-    """Score TIP_ICONS_EMAIL against reading text; return top 3."""
     tl = text.lower()
     scored = []
     for tip in TIP_ICONS_EMAIL:
@@ -498,7 +505,6 @@ def _score_tips(text: str) -> list:
 
 
 def _featured_tips_email_html(reading_text: str) -> str:
-    """Three centred icon cards — mirrors the website's .ftip-row section."""
     tips = _score_tips(reading_text)
     if not tips:
         return ""
@@ -538,10 +544,6 @@ def _tip_icon_svg(tag: str, col: str) -> str:
 
 
 def _parse_reading_v2(text: str) -> tuple:
-    """
-    Parse Claude output (v2 structured format) into
-    (body_html, tips_html, conclusion_html).
-    """
     GRN  = "#3D5A4C"
     BR   = "#2C1A0E"
     CR   = "#F0E6D3"
@@ -550,19 +552,15 @@ def _parse_reading_v2(text: str) -> tuple:
     tips_html       = ""
     conclusion_html = ""
 
-    # Split into sections on ## and ### headings
     parts = re.split(r'\n(#{1,3} [^\n]+)\n', "\n" + text.strip())
-    # parts = [pre, heading, content, heading, content, ...]
 
     current_heading = None
-    tip_section_found = False
 
     for part in parts:
         part_stripped = part.strip()
         if not part_stripped:
             continue
 
-        # Is this a heading?
         heading_match = re.match(r'^(#{1,3}) (.+)$', part_stripped)
         if heading_match:
             current_heading = heading_match.group(2).strip()
@@ -574,33 +572,24 @@ def _parse_reading_v2(text: str) -> tuple:
         heading_lower = current_heading.lower()
 
         if "tip" in heading_lower or "wellness" in heading_lower:
-            tip_section_found = True
-            # Split into tip lines and conclusion
             lines = part_stripped.split("\n")
             tip_lines = []
             remainder_lines = []
-            in_tips = True
             for line in lines:
                 if re.match(r'^\[(\w+)\]', line.strip()):
                     tip_lines.append(line.strip())
                 elif tip_lines and line.strip():
-                    # Non-empty line after tips = conclusion
                     remainder_lines.append(line.strip())
-            # Build tip cards
             if tip_lines:
                 tips_html = _build_tips_html(tip_lines)
-            # Conclusion from remainder
             if remainder_lines:
                 conclusion_text = " ".join(remainder_lines)
                 conclusion_html = _render_conclusion_html(conclusion_text, GRN, BR, CR)
 
         elif part_stripped and current_heading:
-            # Regular reading section — render with heading
             body_html += _render_section_html(current_heading, part_stripped, GRN, BR)
 
-    # If no conclusion found in tips section, check for trailing paragraph
     if not conclusion_html:
-        # Look for last double-newline separated paragraph after any tips
         chunks = re.split(r'\n\n+', text.strip())
         last = chunks[-1].strip()
         if last and not re.match(r'^\[', last) and not re.match(r'^#', last):
@@ -674,31 +663,99 @@ def _render_conclusion_html(text: str, GRN: str, BR: str, CR: str) -> str:
     )
 
 
-def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str) -> str:
+def _protocol_overview_html(principle_obj) -> str:
     """
-    Build the HTML email, mirroring the on-page reading layout:
-      1. Header
-      2. Zodiac identity banner (dark, element-themed)
-      3. Four Pillars + prose  (light bg)
-      4. Your Year Ahead chart (light bg)
-      5. Your Reading text + tips + conclusion + featured icons  (slightly darker bg)
-      6. Book CTA + footer
+    Build the ear seed treatment overview section for the email.
+    Shows the treatment principle and a brief patient-friendly description.
+    The full technical protocol (point list, ear, metal) is visible only
+    in the practitioner dashboard.
     """
+    CR  = "#FAF3E4"
+    BR  = "#2A1F10"
+    GRN = "#4D5D53"
+    BRL = "#8A7456"
+    BDR = "#D8CCBA"
+
+    # Build a short, readable summary of the imbalance for the patient
+    deficient = principle_obj.deficient  # list of element names
+    excess    = principle_obj.excess
+    principle = principle_obj.principle  # e.g. "Nourish Water · Tonify Metal"
+
+    parts = []
+    if deficient:
+        d_str = " and ".join(deficient)
+        parts.append(
+            f"Your {d_str} element{'s' if len(deficient) > 1 else ''} "
+            f"{'are' if len(deficient) > 1 else 'is'} below strength — "
+            f"the treatment prioritises nourishing {'these foundations' if len(deficient) > 1 else 'this foundation'}."
+        )
+    if excess:
+        e_str = " and ".join(excess)
+        parts.append(
+            f"Your {e_str} element{'s' if len(excess) > 1 else ''} "
+            f"{'are' if len(excess) > 1 else 'is'} dominant — "
+            f"the treatment helps regulate and restore flow."
+        )
+    if not deficient and not excess:
+        parts.append(
+            "Your constitution is well balanced — the protocol supports homeostasis "
+            "and the harmonious flow already present in your chart."
+        )
+
+    patient_desc = " ".join(parts)
+
+    return (
+        '<tr><td style="padding:40px 48px 36px;background:' + CR + ';border-bottom:1px solid ' + BDR + ';">'
+        '<p style="margin:0 0 4px;font-family:Raleway,Arial,sans-serif;font-size:9px;'
+        'letter-spacing:0.28em;text-transform:uppercase;color:' + BRL + ';">Treatment</p>'
+        '<p style="margin:0 0 8px;font-family:Raleway,Arial,sans-serif;font-size:20px;'
+        'font-weight:300;letter-spacing:0.14em;text-transform:uppercase;color:' + BR + ';">'
+        'Your Ear Seed Protocol</p>'
+        '<div style="width:28px;height:1px;background:' + GRN + ';opacity:0.6;margin-bottom:20px;"></div>'
+
+        # Principle pill
+        '<p style="margin:0 0 18px;font-family:Raleway,Arial,sans-serif;font-size:11px;'
+        'font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:' + GRN + ';">'
+        + principle + '</p>'
+
+        # Patient-friendly description
+        '<p style="margin:0 0 20px;font-family:Raleway,Arial,sans-serif;font-size:14px;'
+        'font-weight:300;line-height:1.8;color:#6B5740;">'
+        + patient_desc + '</p>'
+
+        # What ear seeds are — one sentence for the uninitiated
+        '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:12px;'
+        'font-weight:300;line-height:1.7;color:' + BRL + ';font-style:italic;">'
+        'Ear seeds are tiny pellets placed on specific auricular points to support your body\'s own '
+        'regulatory processes — non-invasive, gentle, and worn for several days. '
+        'Your practitioner will apply them at your next visit.</p>'
+
+        '</td></tr>'
+    )
+
+
+def _build_email(
+    name: str,
+    pillars: dict,
+    constitution: dict,
+    reading_text: str,
+    principle_obj=None,
+) -> str:
     zodiac_row     = _zodiac_banner_html(pillars)
     pillar_tbl     = _pillar_cards_html(pillars)
     pillar_prose   = _pillar_prose_html(pillars, "#8A7456")
     year_chart     = _year_chart_email_html(constitution)
     featured_tips  = _featured_tips_email_html(reading_text)
     body_html, tips_html, conclusion_html = _parse_reading_v2(reading_text)
+    protocol_section = _protocol_overview_html(principle_obj) if principle_obj else ""
 
-    # Colour palette — matches squarespace_reading_page.html
-    CR  = "#FAF3E4"   # light section bg  (≈ #F5F0E6 on site)
-    CRA = "#EDE5D0"   # alt section bg    (≈ #EDE5D0 on site)
-    CRB = "#F0E8D8"   # outer bg
-    BR  = "#2A1F10"   # primary text
-    GRN = "#4D5D53"   # accent green
-    BRL = "#8A7456"   # warm brown
-    BDR = "#D8CCBA"   # border
+    CR  = "#FAF3E4"
+    CRA = "#EDE5D0"
+    CRB = "#F0E8D8"
+    BR  = "#2A1F10"
+    GRN = "#4D5D53"
+    BRL = "#8A7456"
+    BDR = "#D8CCBA"
 
     return (
         "<!DOCTYPE html>"
@@ -780,49 +837,47 @@ def _build_email(name: str, pillars: dict, constitution: dict, reading_text: str
         + tips_html
         + conclusion_html
         + '</table>'
-        # Featured tip icons
         + ('<tr><td style="padding:32px 0 8px;"><div style="width:100%;height:1px;background:' + BDR + ';"></div></td></tr>'
            if featured_tips else "")
         + ('<tr><td style="padding:24px 0 0;text-align:center;">' + featured_tips + '</td></tr>'
            if featured_tips else "")
         + '</td></tr>'
 
+        # ── EAR SEED PROTOCOL OVERVIEW ─────────────────────────
+        + protocol_section
+
         # ── BOOK CTA ──────────────────────────────────────────
-        '<tr><td style="padding:44px 48px;background:' + CRA + ';text-align:center;border-top:1px solid ' + BDR + ';">'
-        '<p style="margin:0 0 20px;font-family:Raleway,Arial,sans-serif;font-size:15px;'
-        'font-style:italic;font-weight:300;color:#6B5740;line-height:1.7;">'
-        'Ready to go deeper? Book a treatment and bring your reading to life.</p>'
-        '<a href="https://www.ednicholls.com/appointments" style="display:inline-block;'
-        'font-family:Raleway,Arial,sans-serif;font-size:11px;font-weight:500;'
-        'letter-spacing:0.18em;text-transform:uppercase;color:#F5F0E6;'
-        'background:#4D5D53;padding:15px 40px;border-radius:32px;text-decoration:none;">'
-        'Book a Treatment</a>'
-        '</td></tr>'
+        + '<tr><td style="padding:44px 48px;background:' + CRA + ';text-align:center;border-top:1px solid ' + BDR + ';">'
+        + '<p style="margin:0 0 20px;font-family:Raleway,Arial,sans-serif;font-size:15px;'
+          'font-style:italic;font-weight:300;color:#6B5740;line-height:1.7;">'
+          'Ready to go deeper? Book a treatment and bring your reading to life.</p>'
+          '<a href="https://www.ednicholls.com/appointments" style="display:inline-block;'
+          'font-family:Raleway,Arial,sans-serif;font-size:11px;font-weight:500;'
+          'letter-spacing:0.18em;text-transform:uppercase;color:#F5F0E6;'
+          'background:#4D5D53;padding:15px 40px;border-radius:32px;text-decoration:none;">'
+          'Book a Treatment</a>'
+          '</td></tr>'
 
         # ── FOOTER ────────────────────────────────────────────
-        '<tr><td style="padding:28px 48px;border-top:1px solid ' + BDR + ';text-align:center;">'
-        '<p style="margin:0 0 6px;font-family:Raleway,Arial,sans-serif;font-size:9px;'
-        'letter-spacing:0.2em;text-transform:uppercase;color:' + BRL + ';">'
-        'Ed Nicholls Acupuncture &nbsp;&middot;&nbsp; ednicholls.com</p>'
-        '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:9px;color:' + BRL + ';">'
-        'This reading is offered as a complementary wellness guide, not a substitute for medical advice.</p>'
-        '</td></tr>'
+        + '<tr><td style="padding:28px 48px;border-top:1px solid ' + BDR + ';text-align:center;">'
+        + '<p style="margin:0 0 6px;font-family:Raleway,Arial,sans-serif;font-size:9px;'
+          'letter-spacing:0.2em;text-transform:uppercase;color:' + BRL + ';">'
+          'Ed Nicholls Acupuncture &nbsp;&middot;&nbsp; ednicholls.com</p>'
+          '<p style="margin:0;font-family:Raleway,Arial,sans-serif;font-size:9px;color:' + BRL + ';">'
+          'This reading is offered as a complementary wellness guide, not a substitute for medical advice.</p>'
+          '</td></tr>'
 
-        '</table>'
-        '</td></tr>'
-        '</table>'
-        '</body>'
-        '</html>'
+        + '</table>'
+          '</td></tr>'
+          '</table>'
+          '</body>'
+          '</html>'
     )
 
 
 # ── Google Sheets logger ───────────────────────────────────
 
 def _log_to_sheets(name: str, email: str) -> None:
-    """
-    Append a subscriber row to Google Sheets via Apps Script web app.
-    Set GOOGLE_SHEET_URL in Railway env vars to enable.
-    """
     url = os.environ.get("GOOGLE_SHEET_URL")
     if not url:
         return
@@ -864,7 +919,15 @@ def get_reading(data: ReadingRequest):
     weakest      = sorted_elems[0][0]
     strongest    = sorted_elems[-1][0]
 
-    # 4. Build Claude prompt
+    # 4. Ear seed protocol
+    handedness = "left" if str(data.handedness or "right").lower().startswith("l") else "right"
+    try:
+        principle_obj, protocol = get_protocol(pillars, constitution, handedness)
+    except Exception as e:
+        logger.error("Protocol error: %s", e)
+        principle_obj, protocol = None, None
+
+    # 5. Build Claude prompt
     user_message = build_user_message(
         name         = data.name,
         pillars      = pillars,
@@ -876,7 +939,7 @@ def get_reading(data: ReadingRequest):
         hour_known   = hour_known,
     )
 
-    # 5. Call Claude
+    # 6. Call Claude
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
@@ -896,8 +959,8 @@ def get_reading(data: ReadingRequest):
         logger.error("Claude API error: %s", e)
         raise HTTPException(status_code=502, detail=f"Claude API error: {e}")
 
-    # 7. Build email
-    html = _build_email(data.name, pillars, constitution, reading_text)
+    # 7. Build email (includes ear seed protocol overview section)
+    html = _build_email(data.name, pillars, constitution, reading_text, principle_obj)
 
     # 8. Send via Resend
     resend_key = os.environ.get("RESEND_API_KEY")
@@ -934,8 +997,52 @@ def get_reading(data: ReadingRequest):
         logger.error("Resend unexpected error: %s", e)
         raise HTTPException(status_code=502, detail=f"Email send error: {e}")
 
-    # 8. Log to Google Sheets (non-fatal if it fails)
+    # 9. Log to Google Sheets (non-fatal)
     _log_to_sheets(data.name, data.email)
+
+    # 10. Save to database (non-fatal — failure does not affect the response)
+    if principle_obj and protocol:
+        points_out = []
+        for p in protocol.points:
+            db = AURICULAR_POINTS.get(p.name, {})
+            points_out.append({
+                "name":              p.name,
+                "ear":               p.ear,
+                "metal":             p.metal,
+                "intent":            p.intent,
+                "action":            p.action,
+                "point_type":        p.point_type,
+                "note":              p.note,
+                "body_point_tonify": db.get("body_point_tonify", ""),
+                "body_point_sedate": db.get("body_point_sedate", ""),
+            })
+        protocol_data = {
+            "points":     points_out,
+            "left_ear":   protocol.left_ear,
+            "right_ear":  protocol.right_ear,
+            "bilateral":  protocol.bilateral,
+            "handedness": protocol.handedness,
+        }
+        try:
+            save_submission({
+                "name":         data.name or "",
+                "email":        data.email or "",
+                "year":         data.year,
+                "month":        data.month,
+                "day":          data.day,
+                "hour":         data.hour,
+                "handedness":   handedness,
+                "constitution": constitution,
+                "pillars":      {k: list(v) for k, v in pillars.items()},
+                "principle":    principle_obj.principle,
+                "day_master":   principle_obj.day_master,
+                "deficient":    principle_obj.deficient,
+                "excess":       principle_obj.excess,
+                "reading_text": reading_text,
+                "protocol":     protocol_data,
+            })
+        except Exception as e:
+            logger.error("Failed to save submission: %s", e)
 
     return ReadingResponse(
         success      = True,
@@ -945,3 +1052,59 @@ def get_reading(data: ReadingRequest):
         constitution = constitution,
         reading_text = reading_text,
     )
+
+
+# ── Practitioner dashboard API ─────────────────────────────
+
+@app.get("/api/patients")
+def api_patients(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    rows = list_submissions()
+    for r in rows:
+        if r.get("created_at"):
+            r["created_at"] = r["created_at"].isoformat()
+    return JSONResponse(rows)
+
+
+@app.get("/api/patients/{sub_id}")
+def api_patient_detail(sub_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    row = get_submission(sub_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Not found.")
+    if row.get("created_at"):
+        row["created_at"] = row["created_at"].isoformat()
+    return JSONResponse(row)
+
+
+@app.post("/api/patients/{sub_id}/notes")
+async def api_save_notes(sub_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    ok = update_notes(sub_id, body.get("notes", ""))
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not save notes.")
+    return {"ok": True}
+
+
+# ── Practitioner dashboard ─────────────────────────────────
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    if not _check_token(request):
+        return HTMLResponse("""<!DOCTYPE html><html><head>
+        <meta charset="UTF-8"><title>Access denied</title>
+        <style>body{font-family:sans-serif;display:flex;align-items:center;
+        justify-content:center;height:100vh;margin:0;background:#FAF3E4;color:#2C1A0E;}
+        </style></head><body><p style="font-size:14px">Access denied — invalid or missing token.</p>
+        </body></html>""", status_code=403)
+    token = request.query_params.get("token", "")
+    try:
+        with open("dashboard.html", "r") as f:
+            html = f.read().replace("__TOKEN__", token)
+        return HTMLResponse(html)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="dashboard.html not found.")
