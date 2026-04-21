@@ -29,7 +29,7 @@ from bazi_calculator import (
 )
 from prompt_builder import SYSTEM_PROMPT, build_user_message
 from treatment_protocol import get_protocol, AURICULAR_POINTS
-from database import init_db, save_submission, list_submissions, get_submission, update_notes
+from database import init_db, save_submission, list_submissions, get_submission, update_notes, email_exists, submission_exists
 
 # ── App ────────────────────────────────────────────────────
 
@@ -1025,11 +1025,12 @@ def get_reading(data: ReadingRequest):
         logger.error("Resend unexpected error: %s", e)
         raise HTTPException(status_code=502, detail=f"Email send error: {e}")
 
-    # 9. Log to Google Sheets (non-fatal)
-    _log_to_sheets(data.name, data.email)
+    # 9. Log to Google Sheets — only if this email is new (non-fatal)
+    if not email_exists(data.email):
+        _log_to_sheets(data.name, data.email)
 
-    # 10. Save to database (non-fatal — failure does not affect the response)
-    if principle_obj and protocol:
+    # 10. Save to database — skip if identical email + DOB already recorded
+    if principle_obj and protocol and not submission_exists(data.email, data.year, data.month, data.day):
         points_out = []
         for p in protocol.points:
             db = AURICULAR_POINTS.get(p.name, {})
