@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ed Nicholls Acupuncture — Practice Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%234D5D53'/%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='white' stroke-width='5'/%3E%3Ccircle cx='50' cy='50' r='39' fill='%234D5D53'/%3E%3Cg fill='white'%3E%3Cellipse cx='50' cy='20' rx='10' ry='12' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='20' rx='10' ry='12' transform='rotate(72 50 50)'/%3E%3Cellipse cx='50' cy='20' rx='10' ry='12' transform='rotate(144 50 50)'/%3E%3Cellipse cx='50' cy='20' rx='10' ry='12' transform='rotate(216 50 50)'/%3E%3Cellipse cx='50' cy='20' rx='10' ry='12' transform='rotate(288 50 50)'/%3E%3C/g%3E%3Cg stroke='%234D5D53' stroke-width='1.2' stroke-linecap='round'%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(0 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(36 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(72 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(108 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(144 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(180 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(216 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(252 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(288 50 50)'/%3E%3Cline x1='50' y1='50' x2='50' y2='30' transform='rotate(324 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='5' fill='white'/%3E%3Ccircle cx='50' cy='50' r='3' fill='%234D5D53'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&display=swap" rel="stylesheet">
@@ -45,6 +46,14 @@
     .sidebar-brand {
       padding: 28px 20px 24px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .sidebar-brand .brand-logo {
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
     }
     .sidebar-brand .brand-eyebrow {
       font-size: 7px;
@@ -718,8 +727,36 @@
   <!-- ── Sidebar ─────────────────────────────────────── -->
   <div id="sidebar">
     <div class="sidebar-brand">
-      <div class="brand-eyebrow">Practitioner Dashboard</div>
-      <div class="brand-name">Ed Nicholls<br>Acupuncture</div>
+      <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="50" fill="#4D5D53"/>
+        <circle cx="50" cy="50" r="46" fill="none" stroke="white" stroke-width="5"/>
+        <circle cx="50" cy="50" r="39" fill="#4D5D53"/>
+        <!-- 5 petals -->
+        <ellipse cx="50" cy="20" rx="10" ry="12" fill="white" transform="rotate(0 50 50)"/>
+        <ellipse cx="50" cy="20" rx="10" ry="12" fill="white" transform="rotate(72 50 50)"/>
+        <ellipse cx="50" cy="20" rx="10" ry="12" fill="white" transform="rotate(144 50 50)"/>
+        <ellipse cx="50" cy="20" rx="10" ry="12" fill="white" transform="rotate(216 50 50)"/>
+        <ellipse cx="50" cy="20" rx="10" ry="12" fill="white" transform="rotate(288 50 50)"/>
+        <!-- spokes -->
+        <g stroke="#4D5D53" stroke-width="1.2" stroke-linecap="round">
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(0 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(36 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(72 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(108 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(144 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(180 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(216 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(252 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(288 50 50)"/>
+          <line x1="50" y1="50" x2="50" y2="30" transform="rotate(324 50 50)"/>
+        </g>
+        <circle cx="50" cy="50" r="5" fill="white"/>
+        <circle cx="50" cy="50" r="3" fill="#4D5D53"/>
+      </svg>
+      <div>
+        <div class="brand-eyebrow">Practitioner Dashboard</div>
+        <div class="brand-name">Ed Nicholls<br>Acupuncture</div>
+      </div>
     </div>
     <nav class="sidebar-nav">
       <div class="nav-item active" onclick="showPage('dashboard')">
