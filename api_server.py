@@ -29,7 +29,24 @@ from bazi_calculator import (
 )
 from prompt_builder import SYSTEM_PROMPT, build_user_message
 from treatment_protocol import get_protocol, AURICULAR_POINTS
-from database import init_db, save_submission, list_submissions, get_submission, update_notes, email_exists, submission_exists
+from database import (
+    init_db, save_submission, list_submissions, get_submission, update_notes,
+    email_exists, submission_exists,
+    # patients
+    create_patient, get_patient, get_patient_by_email, find_or_create_patient,
+    list_patients, update_patient, update_patient_notes, get_patient_history,
+    # appointments
+    create_appointment, get_appointment, list_appointments, list_today_appointments,
+    update_appointment_status, update_appointment,
+    # appointment types
+    list_appointment_types,
+    # availability
+    list_availability, set_availability,
+    # blocked times
+    list_blocked_times, add_blocked_time, delete_blocked_time,
+    # treatment notes
+    get_treatment_note, save_treatment_note, list_documentation_queue,
+)
 
 # ── App ────────────────────────────────────────────────────
 
@@ -1029,6 +1046,20 @@ def get_reading(data: ReadingRequest):
     if not email_exists(data.email):
         _log_to_sheets(data.name, data.email)
 
+    # 9b. Find or create patient record
+    patient_id = None
+    try:
+        patient_id = find_or_create_patient(
+            name       = data.name or "",
+            email      = data.email,
+            year       = data.year,
+            month      = data.month,
+            day        = data.day,
+            handedness = handedness,
+        )
+    except Exception as e:
+        logger.warning("find_or_create_patient failed (non-fatal): %s", e)
+
     # 10. Save to database — skip if identical email + DOB already recorded
     if principle_obj and protocol and not submission_exists(data.email, data.year, data.month, data.day):
         points_out = []
@@ -1054,6 +1085,7 @@ def get_reading(data: ReadingRequest):
         }
         try:
             save_submission({
+                "patient_id":   patient_id,
                 "name":         data.name or "",
                 "email":        data.email or "",
                 "year":         data.year,
@@ -1117,6 +1149,226 @@ async def api_save_notes(sub_id: int, request: Request):
     if not ok:
         raise HTTPException(status_code=500, detail="Could not save notes.")
     return {"ok": True}
+
+
+# ── Patients (new patient-centric endpoints) ───────────────
+
+@app.get("/api/v2/patients")
+def api_list_patients(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    rows = list_patients()
+    return JSONResponse(rows)
+
+
+@app.post("/api/v2/patients")
+async def api_create_patient(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    pid = create_patient(body)
+    if not pid:
+        raise HTTPException(status_code=500, detail="Could not create patient.")
+    return JSONResponse({"id": pid})
+
+
+@app.get("/api/v2/patients/{patient_id}")
+def api_get_patient(patient_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    row = get_patient(patient_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Patient not found.")
+    if row.get("created_at"):
+        row["created_at"] = row["created_at"].isoformat()
+    return JSONResponse(row)
+
+
+@app.put("/api/v2/patients/{patient_id}")
+async def api_update_patient(patient_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    ok = update_patient(patient_id, body)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not update patient.")
+    return {"ok": True}
+
+
+@app.post("/api/v2/patients/{patient_id}/notes")
+async def api_update_patient_notes(patient_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    ok = update_patient_notes(patient_id, body.get("notes", ""))
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not save notes.")
+    return {"ok": True}
+
+
+@app.get("/api/v2/patients/{patient_id}/history")
+def api_patient_history(patient_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    history = get_patient_history(patient_id)
+    return JSONResponse(history)
+
+
+# ── Appointments ───────────────────────────────────────────
+
+@app.get("/api/appointments")
+def api_list_appointments(request: Request, date: Optional[str] = None):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    rows = list_appointments(date_str=date)
+    return JSONResponse(rows)
+
+
+@app.get("/api/appointments/today")
+def api_today_appointments(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    rows = list_today_appointments()
+    return JSONResponse(rows)
+
+
+@app.post("/api/appointments")
+async def api_create_appointment(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    appt_id = create_appointment(body)
+    if not appt_id:
+        raise HTTPException(status_code=500, detail="Could not create appointment.")
+    return JSONResponse({"id": appt_id})
+
+
+@app.get("/api/appointments/{appt_id}")
+def api_get_appointment(appt_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    row = get_appointment(appt_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Appointment not found.")
+    return JSONResponse(row)
+
+
+@app.put("/api/appointments/{appt_id}")
+async def api_update_appointment(appt_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    ok = update_appointment(appt_id, body)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not update appointment.")
+    return {"ok": True}
+
+
+@app.patch("/api/appointments/{appt_id}/status")
+async def api_appointment_status(appt_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    status = body.get("status", "")
+    valid = {"confirmed", "checked_in", "in_treatment", "completed", "cancelled", "no_show"}
+    if status not in valid:
+        raise HTTPException(status_code=422, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    ok = update_appointment_status(appt_id, status)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not update status.")
+    return {"ok": True}
+
+
+# ── Appointment types ──────────────────────────────────────
+
+@app.get("/api/appointment-types")
+def api_appointment_types(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    return JSONResponse(list_appointment_types())
+
+
+# ── Availability ───────────────────────────────────────────
+
+@app.get("/api/availability")
+def api_get_availability(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    return JSONResponse(list_availability())
+
+
+@app.put("/api/availability")
+async def api_set_availability(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    slots = body.get("slots", [])
+    ok = set_availability(slots)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not save availability.")
+    return {"ok": True}
+
+
+# ── Blocked times ──────────────────────────────────────────
+
+@app.get("/api/blocked-times")
+def api_list_blocked_times(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    return JSONResponse(list_blocked_times())
+
+
+@app.post("/api/blocked-times")
+async def api_add_blocked_time(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    bid = add_blocked_time(body)
+    if not bid:
+        raise HTTPException(status_code=500, detail="Could not add blocked time.")
+    return JSONResponse({"id": bid})
+
+
+@app.delete("/api/blocked-times/{block_id}")
+def api_delete_blocked_time(block_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    ok = delete_blocked_time(block_id)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not delete blocked time.")
+    return {"ok": True}
+
+
+# ── Treatment notes ────────────────────────────────────────
+
+@app.get("/api/treatment-notes/{appt_id}")
+def api_get_treatment_note(appt_id: int, request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    note = get_treatment_note(appt_id)
+    if not note:
+        return JSONResponse({})
+    return JSONResponse(note)
+
+
+@app.post("/api/treatment-notes")
+async def api_save_treatment_note(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    body = await request.json()
+    nid = save_treatment_note(body)
+    if not nid:
+        raise HTTPException(status_code=500, detail="Could not save note.")
+    return JSONResponse({"id": nid})
+
+
+# ── Documentation queue ────────────────────────────────────
+
+@app.get("/api/documentation-queue")
+def api_documentation_queue(request: Request):
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    return JSONResponse(list_documentation_queue())
 
 
 # ── Practitioner dashboard ─────────────────────────────────
