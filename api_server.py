@@ -5,7 +5,7 @@ Merged: Ba Zi reading + Ear Seed Protocol + PostgreSQL database + Practitioner d
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field, validator
 from typing import Optional
 from datetime import date, datetime, timezone
@@ -1371,6 +1371,48 @@ def api_documentation_queue(request: Request):
     return JSONResponse(list_documentation_queue())
 
 
+# ── Static assets ──────────────────────────────────────────
+
+@app.get("/favicon.svg")
+def favicon():
+    try:
+        with open("favicon.svg", "rb") as f:
+            return Response(content=f.read(), media_type="image/svg+xml")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="favicon.svg not found.")
+
+@app.get("/manifest.json")
+def manifest():
+    try:
+        with open("manifest.json", "rb") as f:
+            return Response(content=f.read(), media_type="application/manifest+json")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="manifest.json not found.")
+
+@app.get("/sw.js")
+def service_worker():
+    try:
+        with open("sw.js", "rb") as f:
+            return Response(content=f.read(), media_type="application/javascript")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="sw.js not found.")
+
+@app.get("/icon-192.png")
+def icon_192():
+    try:
+        with open("icon-192.png", "rb") as f:
+            return Response(content=f.read(), media_type="image/png")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="icon-192.png not found.")
+
+@app.get("/icon-512.png")
+def icon_512():
+    try:
+        with open("icon-512.png", "rb") as f:
+            return Response(content=f.read(), media_type="image/png")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="icon-512.png not found.")
+
 # ── Practitioner dashboard ─────────────────────────────────
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -1386,6 +1428,15 @@ def dashboard(request: Request):
     try:
         with open("dashboard.html", "r") as f:
             html = f.read().replace("__TOKEN__", token)
+        # Inject favicon as data URI so it works without a separate request
+        try:
+            import base64
+            with open("favicon.svg", "rb") as fav:
+                fav_b64 = base64.b64encode(fav.read()).decode()
+            fav_uri = f"data:image/svg+xml;base64,{fav_b64}"
+            html = html.replace("/favicon.svg", fav_uri)
+        except FileNotFoundError:
+            pass  # favicon not found — leave src as-is
         return HTMLResponse(html)
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="dashboard.html not found.")
