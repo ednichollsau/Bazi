@@ -254,21 +254,15 @@ def list_patients(limit: int = 500) -> list[dict]:
         with get_conn() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT p.*,
-                           COUNT(DISTINCT a.id)  AS appointment_count,
-                           MAX(a.start_dt)       AS last_appointment
-                    FROM   patients p
-                    LEFT JOIN appointments a ON a.patient_id = p.id
-                    GROUP BY p.id
-                    ORDER BY p.name
+                    SELECT *, 0 AS appointment_count, NULL AS last_appointment
+                    FROM   patients
+                    ORDER BY name
                     LIMIT %s
                 """, (limit,))
                 rows = cur.fetchall()
         result = []
         for r in rows:
             d = dict(r)
-            if d.get("last_appointment"):
-                d["last_appointment"] = d["last_appointment"].isoformat()
             if d.get("created_at"):
                 d["created_at"] = d["created_at"].isoformat()
             result.append(d)
