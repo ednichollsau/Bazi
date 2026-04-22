@@ -1406,16 +1406,42 @@ function renderPatientDetail(p, hist) {
     : '<div class="text-muted">No appointments yet.</div>';
 
   const subHtml = subs.length
-    ? subs.map(s => `
-        <div class="history-item">
-          <div class="history-date">${fmtDate(s.created_at)}</div>
-          <div class="history-title">${s.principle || 'Reading'}</div>
-          <div class="history-sub">Day Master: ${s.day_master || '—'}
-            ${s.deficient ? ' · Deficient: ' + s.deficient : ''}
-            ${s.excess    ? ' · Excess: '    + s.excess    : ''}
+    ? subs.map(s => {
+        const proto = s.protocol || {};
+        const points = proto.points || [];
+        const leftPts  = points.filter(p => p.ear === 'left'  || p.ear === 'bilateral');
+        const rightPts = points.filter(p => p.ear === 'right' || p.ear === 'bilateral');
+        const bilat    = points.filter(p => p.ear === 'bilateral');
+
+        const renderPoints = (pts) => pts.map(p => `
+          <div style="padding:6px 0;border-bottom:1px solid var(--bdr);">
+            <div style="font-weight:600;font-size:11px;letter-spacing:0.05em;">${p.name}${p.metal ? ' <span style="opacity:0.5;font-weight:400;">('+p.metal+')</span>' : ''}</div>
+            ${p.intent ? `<div style="font-size:10px;color:var(--txt-muted);margin-top:1px;">${p.intent}</div>` : ''}
           </div>
-        </div>
-      `).join('')
+        `).join('');
+
+        const protocolHtml = points.length ? `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+            <div>
+              <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--grn);margin-bottom:4px;">Left Ear</div>
+              ${renderPoints(leftPts) || '<div style="font-size:10px;opacity:0.5;">—</div>'}
+            </div>
+            <div>
+              <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--grn);margin-bottom:4px;">Right Ear</div>
+              ${renderPoints(rightPts) || '<div style="font-size:10px;opacity:0.5;">—</div>'}
+            </div>
+          </div>
+        ` : '';
+
+        return `
+          <div class="history-item">
+            <div class="history-date">${fmtDate(s.created_at)}</div>
+            <div class="history-title">${s.principle || 'Reading'}</div>
+            <div class="history-sub" style="margin-bottom:6px;">Day Master: ${s.day_master || '—'}${s.deficient ? ' · Deficient: ' + s.deficient : ''}${s.excess ? ' · Excess: ' + s.excess : ''}</div>
+            ${protocolHtml}
+          </div>
+        `;
+      }).join('')
     : '<div class="text-muted">No readings yet.</div>';
 
   detail.innerHTML = `
