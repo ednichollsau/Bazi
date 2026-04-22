@@ -1405,13 +1405,23 @@ function renderPatientDetail(p, hist) {
       `).join('')
     : '<div class="text-muted">No appointments yet.</div>';
 
+  const ELEM_COL  = { Wood:'#5A7A4C', Fire:'#9E5040', Earth:'#A87C35', Metal:'#7A8885', Water:'#4A6E8C' };
+  const STATE_PCT = { Absent:4, Low:28, Balanced:58, Excess:100 };
+  const YEAR_ENERGY = {
+    Wood:  { pct:42,  tag:'Drawn upon',  note:'Feeds the Fire — may feel depleted' },
+    Fire:  { pct:100, tag:'Amplified',   note:'Double Fire year — this element surges' },
+    Earth: { pct:68,  tag:'Rising',      note:'Born from Fire; gaining momentum' },
+    Metal: { pct:18,  tag:'Challenged',  note:'Fire melts Metal — under pressure' },
+    Water: { pct:12,  tag:'Constrained', note:'Opposes Fire; quietened this year' },
+  };
+
   const subHtml = subs.length
     ? subs.map(s => {
         const proto = s.protocol || {};
+        const constitution = s.constitution || {};
         const points = proto.points || [];
         const leftPts  = points.filter(p => p.ear === 'left'  || p.ear === 'bilateral');
         const rightPts = points.filter(p => p.ear === 'right' || p.ear === 'bilateral');
-        const bilat    = points.filter(p => p.ear === 'bilateral');
 
         const renderPoints = (pts) => pts.map(p => `
           <div style="padding:6px 0;border-bottom:1px solid var(--bdr);">
@@ -1420,15 +1430,62 @@ function renderPatientDetail(p, hist) {
           </div>
         `).join('');
 
+        const constitutionHtml = Object.keys(ELEM_COL).length && Object.keys(constitution).length ? `
+          <div style="margin-top:16px;margin-bottom:4px;">
+            <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--grn);margin-bottom:10px;">Elemental Constitution</div>
+            ${['Wood','Fire','Earth','Metal','Water'].map(e => {
+              const state = constitution[e] || 'Balanced';
+              const pct   = STATE_PCT[state] ?? 58;
+              return `<div style="display:grid;grid-template-columns:52px 1fr 70px;align-items:center;gap:10px;margin-bottom:8px;">
+                <div style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:${ELEM_COL[e]};font-weight:600;">${e}</div>
+                <div style="background:#e5e0d8;border-radius:2px;height:4px;overflow:hidden;">
+                  <div style="width:${pct}%;height:100%;background:${ELEM_COL[e]};border-radius:2px;"></div>
+                </div>
+                <div style="font-size:10px;color:var(--txt-muted);text-align:right;">${state}</div>
+              </div>`;
+            }).join('')}
+          </div>
+          <div style="margin-top:16px;margin-bottom:4px;">
+            <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--grn);margin-bottom:2px;">Constitution vs 2026</div>
+            <div style="font-size:9px;color:var(--txt-muted);margin-bottom:10px;">丙午 Fire Horse year</div>
+            ${['Wood','Fire','Earth','Metal','Water'].map(e => {
+              const state   = constitution[e] || 'Balanced';
+              const constPct = STATE_PCT[state] ?? 58;
+              const ye = YEAR_ENERGY[e] || { pct:50, tag:'', note:'' };
+              return `<div style="margin-bottom:12px;">
+                <div style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:${ELEM_COL[e]};font-weight:600;margin-bottom:4px;">${e}</div>
+                <div style="display:grid;grid-template-columns:100px 1fr 80px;align-items:center;gap:8px;margin-bottom:3px;">
+                  <div style="font-size:8px;color:var(--txt-muted);letter-spacing:0.06em;">Constitution</div>
+                  <div style="background:#e5e0d8;border-radius:2px;height:4px;overflow:hidden;">
+                    <div style="width:${constPct}%;height:100%;background:${ELEM_COL[e]};border-radius:2px;"></div>
+                  </div>
+                  <div style="font-size:9px;color:var(--txt-muted);text-align:right;">${state}</div>
+                </div>
+                <div style="display:grid;grid-template-columns:100px 1fr 80px;align-items:center;gap:8px;margin-bottom:2px;">
+                  <div style="font-size:8px;color:var(--txt-muted);letter-spacing:0.06em;">2026 Energy</div>
+                  <div style="background:#e5e0d8;border-radius:2px;height:4px;overflow:hidden;">
+                    <div style="width:${ye.pct}%;height:100%;background:#B8735A;border-radius:2px;opacity:0.7;"></div>
+                  </div>
+                  <div style="font-size:9px;color:var(--txt-muted);text-align:right;">${ye.tag}</div>
+                </div>
+                ${ye.note ? `<div style="font-size:9px;color:var(--txt-muted);font-style:italic;margin-top:1px;padding-left:108px;">${ye.note}</div>` : ''}
+              </div>`;
+            }).join('')}
+          </div>
+        ` : '';
+
         const protocolHtml = points.length ? `
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
-            <div>
-              <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--grn);margin-bottom:4px;">Left Ear</div>
-              ${renderPoints(leftPts) || '<div style="font-size:10px;opacity:0.5;">—</div>'}
-            </div>
-            <div>
-              <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--grn);margin-bottom:4px;">Right Ear</div>
-              ${renderPoints(rightPts) || '<div style="font-size:10px;opacity:0.5;">—</div>'}
+          <div style="margin-top:16px;">
+            <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--grn);margin-bottom:10px;">Auricular Protocol</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div>
+                <div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--txt-muted);margin-bottom:4px;">Left Ear</div>
+                ${renderPoints(leftPts) || '<div style="font-size:10px;opacity:0.5;">—</div>'}
+              </div>
+              <div>
+                <div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--txt-muted);margin-bottom:4px;">Right Ear</div>
+                ${renderPoints(rightPts) || '<div style="font-size:10px;opacity:0.5;">—</div>'}
+              </div>
             </div>
           </div>
         ` : '';
@@ -1438,6 +1495,7 @@ function renderPatientDetail(p, hist) {
             <div class="history-date">${fmtDate(s.created_at)}</div>
             <div class="history-title">${s.principle || 'Reading'}</div>
             <div class="history-sub" style="margin-bottom:6px;">Day Master: ${s.day_master || '—'}${s.deficient ? ' · Deficient: ' + s.deficient : ''}${s.excess ? ' · Excess: ' + s.excess : ''}</div>
+            ${constitutionHtml}
             ${protocolHtml}
           </div>
         `;
