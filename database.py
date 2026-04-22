@@ -37,134 +37,142 @@ def get_conn():
 
 # ── Schema initialisation ──────────────────────────────────────────────────────
 
+def _run(conn, sql, params=None):
+    """Execute a single SQL statement in its own transaction."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        logger.warning("init_db step failed (may already exist): %s", e)
+
+
 def init_db():
-    """Create/migrate all tables. Called once on server startup."""
+    """Create/migrate all tables. Each statement runs independently so one
+    failure never prevents the others from completing."""
     if not DATABASE_URL:
         logger.warning("DATABASE_URL not set — database features disabled.")
         return
     try:
-        with get_conn() as conn:
+        conn = get_conn()
+
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS patients (
+                id          SERIAL PRIMARY KEY,
+                name        TEXT NOT NULL,
+                email       TEXT,
+                phone       TEXT,
+                year        INTEGER,
+                month       INTEGER,
+                day         INTEGER,
+                handedness  TEXT NOT NULL DEFAULT 'right',
+                notes       TEXT NOT NULL DEFAULT '',
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS appointment_types (
+                id          SERIAL PRIMARY KEY,
+                name        TEXT NOT NULL UNIQUE,
+                duration    INTEGER NOT NULL DEFAULT 45,
+                description TEXT,
+                active      BOOLEAN NOT NULL DEFAULT TRUE
+            )
+        """)
+
+        # Seed default appointment types
+        try:
             with conn.cursor() as cur:
-
-                # ── Patients ───────────────────────────────────────────────
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS patients (
-                        id          SERIAL PRIMARY KEY,
-                        name        TEXT NOT NULL,
-                        email       TEXT,
-                        phone       TEXT,
-                        year        INTEGER,
-                        month       INTEGER,
-                        day         INTEGER,
-                        handedness  TEXT NOT NULL DEFAULT 'right',
-                        notes       TEXT NOT NULL DEFAULT '',
-                        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                    )
-                """)
-
-                # ── Appointment types ──────────────────────────────────────
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS appointment_types (
-                        id          SERIAL PRIMARY KEY,
-                        name        TEXT NOT NULL UNIQUE,
-                        duration    INTEGER NOT NULL DEFAULT 45,
-                        description TEXT,
-                        active      BOOLEAN NOT NULL DEFAULT TRUE
-                    )
-                """)
-
-                # Seed default types if table is empty
                 cur.execute("SELECT COUNT(*) FROM appointment_types")
                 if cur.fetchone()[0] == 0:
                     cur.execute("""
-                        INSERT INTO appointment_types (name, duration, description)
-                        VALUES
+                        INSERT INTO appointment_types (name, duration, description) VALUES
                             ('Initial Consultation', 45, 'First appointment — full assessment and treatment'),
                             ('Follow-up', 45, 'Ongoing treatment session')
                     """)
-
-                # ── Weekly availability ────────────────────────────────────
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS availability (
-                        id          SERIAL PRIMARY KEY,
-                        day_of_week INTEGER NOT NULL,
-                        start_time  TIME NOT NULL,
-                        end_time    TIME NOT NULL
-                    )
-                """)
-
-                # ── Blocked times ──────────────────────────────────────────
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS blocked_times (
-                        id          SERIAL PRIMARY KEY,
-                        start_dt    TIMESTAMPTZ NOT NULL,
-                        end_dt      TIMESTAMPTZ NOT NULL,
-                        reason      TEXT,
-                        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                    )
-                """)
-
-                # ── Appointments ───────────────────────────────────────────
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS appointments (
-                        id                   SERIAL PRIMARY KEY,
-                        patient_id           INTEGER REFERENCES patients(id),
-                        appointment_type_id  INTEGER REFERENCES appointment_types(id),
-                        start_dt             TIMESTAMPTZ NOT NULL,
-                        end_dt               TIMESTAMPTZ NOT NULL,
-                        status               TEXT NOT NULL DEFAULT 'confirmed',
-                        notes                TEXT NOT NULL DEFAULT '',
-                        created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                    )
-                """)
-
-                # ── Treatment notes (SOAP) ─────────────────────────────────
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS treatment_notes (
-                        id              SERIAL PRIMARY KEY,
-                        appointment_id  INTEGER REFERENCES appointments(id),
-                        patient_id      INTEGER REFERENCES patients(id),
-                        subjective      TEXT NOT NULL DEFAULT '',
-                        objective       TEXT NOT NULL DEFAULT '',
-                        assessment      TEXT NOT NULL DEFAULT '',
-                        plan            TEXT NOT NULL DEFAULT '',
-                        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                    )
-                """)
-
-                # ── Submissions (existing — add patient_id if missing) ─────
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS submissions (
-                        id           SERIAL PRIMARY KEY,
-                        patient_id   INTEGER REFERENCES patients(id),
-                        name         TEXT,
-                        email        TEXT,
-                        year         INTEGER,
-                        month        INTEGER,
-                        day          INTEGER,
-                        hour         INTEGER,
-                        handedness   TEXT,
-                        constitution JSONB,
-                        pillars      JSONB,
-                        principle    TEXT,
-                        day_master   TEXT,
-                        deficient    TEXT,
-                        excess       TEXT,
-                        reading_text TEXT,
-                        protocol     JSONB,
-                        notes        TEXT NOT NULL DEFAULT '',
-                        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                    )
-                """)
-
-                # Migrate: add patient_id column to submissions if it doesn't exist
-                cur.execute("""
-                    ALTER TABLE submissions
-                    ADD COLUMN IF NOT EXISTS patient_id INTEGER REFERENCES patients(id)
-                """)
-
             conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.warning("appointment_types seed failed: %s", e)
+
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS availability (
+                id          SERIAL PRIMARY KEY,
+                day_of_week INTEGER NOT NULL,
+                start_time  TIME NOT NULL,
+                end_time    TIME NOT NULL
+            )
+        """)
+
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS blocked_times (
+                id          SERIAL PRIMARY KEY,
+                start_dt    TIMESTAMPTZ NOT NULL,
+                end_dt      TIMESTAMPTZ NOT NULL,
+                reason      TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS appointments (
+                id                   SERIAL PRIMARY KEY,
+                patient_id           INTEGER REFERENCES patients(id),
+                appointment_type_id  INTEGER REFERENCES appointment_types(id),
+                start_dt             TIMESTAMPTZ NOT NULL,
+                end_dt               TIMESTAMPTZ NOT NULL,
+                status               TEXT NOT NULL DEFAULT 'confirmed',
+                notes                TEXT NOT NULL DEFAULT '',
+                created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS treatment_notes (
+                id              SERIAL PRIMARY KEY,
+                appointment_id  INTEGER REFERENCES appointments(id),
+                patient_id      INTEGER REFERENCES patients(id),
+                subjective      TEXT NOT NULL DEFAULT '',
+                objective       TEXT NOT NULL DEFAULT '',
+                assessment      TEXT NOT NULL DEFAULT '',
+                plan            TEXT NOT NULL DEFAULT '',
+                created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS submissions (
+                id           SERIAL PRIMARY KEY,
+                patient_id   INTEGER REFERENCES patients(id),
+                name         TEXT,
+                email        TEXT,
+                year         INTEGER,
+                month        INTEGER,
+                day          INTEGER,
+                hour         INTEGER,
+                handedness   TEXT,
+                constitution JSONB,
+                pillars      JSONB,
+                principle    TEXT,
+                day_master   TEXT,
+                deficient    TEXT,
+                excess       TEXT,
+                reading_text TEXT,
+                protocol     JSONB,
+                notes        TEXT NOT NULL DEFAULT '',
+                created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        _run(conn, """
+            ALTER TABLE submissions
+            ADD COLUMN IF NOT EXISTS patient_id INTEGER REFERENCES patients(id)
+        """)
+
+        conn.close()
         logger.info("Database initialised.")
     except Exception as e:
         logger.error("Database init error: %s", e)
