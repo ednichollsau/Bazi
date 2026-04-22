@@ -1428,15 +1428,23 @@ def dashboard(request: Request):
     try:
         with open("dashboard.html", "r") as f:
             html = f.read().replace("__TOKEN__", token)
+        import base64
         # Inject favicon as data URI so it works without a separate request
         try:
-            import base64
             with open("favicon.svg", "rb") as fav:
                 fav_b64 = base64.b64encode(fav.read()).decode()
             fav_uri = f"data:image/svg+xml;base64,{fav_b64}"
             html = html.replace("/favicon.svg", fav_uri)
         except FileNotFoundError:
             pass  # favicon not found — leave src as-is
+        # Inject apple-touch-icon as data URI so Safari gets the logo without a separate request
+        try:
+            with open("icon-192.png", "rb") as ico:
+                ico_b64 = base64.b64encode(ico.read()).decode()
+            ico_uri = f"data:image/png;base64,{ico_b64}"
+            html = html.replace('href="/icon-192.png"', f'href="{ico_uri}"')
+        except FileNotFoundError:
+            pass  # icon not found — leave href as-is
         return HTMLResponse(html)
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="dashboard.html not found.")
