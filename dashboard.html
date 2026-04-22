@@ -1458,17 +1458,26 @@ function renderPatientDetail(p, hist) {
       <button class="btn btn-secondary btn-sm" onclick="openEditPatientModal(${p.id})">Edit Details</button>
     </div>
     ${p.notes ? `<div style="background:var(--cr);border:1px solid var(--bdr);padding:14px 16px;margin-bottom:20px;border-left:3px solid var(--grn);font-size:12px;line-height:1.6;">${p.notes}</div>` : ''}
-    <div class="detail-grid">
-      <div>
-        <div class="detail-section-title">Appointments (${appts.length})</div>
-        ${apptHtml}
-      </div>
-      <div>
-        <div class="detail-section-title">Readings (${subs.length})</div>
-        ${subHtml}
-      </div>
+    <div style="border-bottom:1px solid var(--bdr);margin-bottom:20px;display:flex;gap:0;">
+      <button id="tab-appts" onclick="switchPatientTab('appts')" style="background:none;border:none;border-bottom:2px solid var(--grn);padding:8px 20px 10px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt);cursor:pointer;font-family:inherit;margin-bottom:-1px;">Appointments (${appts.length})</button>
+      <button id="tab-readings" onclick="switchPatientTab('readings')" style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 20px 10px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt-muted);cursor:pointer;font-family:inherit;margin-bottom:-1px;">Readings (${subs.length})</button>
     </div>
+    <div id="tab-panel-appts">${apptHtml}</div>
+    <div id="tab-panel-readings" style="display:none;">${subHtml}</div>
   `;
+}
+
+function switchPatientTab(tab) {
+  const tabs   = ['appts','readings'];
+  tabs.forEach(t => {
+    const btn   = document.getElementById('tab-' + t);
+    const panel = document.getElementById('tab-panel-' + t);
+    if (!btn || !panel) return;
+    const active = t === tab;
+    btn.style.borderBottomColor = active ? 'var(--grn)' : 'transparent';
+    btn.style.color = active ? 'var(--txt)' : 'var(--txt-muted)';
+    panel.style.display = active ? '' : 'none';
+  });
 }
 
 // ══════════════════════════════════════════════════
