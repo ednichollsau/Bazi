@@ -350,7 +350,7 @@ def get_patient_history(patient_id: int) -> dict:
 
                 cur.execute("""
                     SELECT id, principle, day_master, deficient, excess,
-                           reading_text, protocol, created_at
+                           reading_text, protocol, constitution, created_at
                     FROM   submissions
                     WHERE  patient_id = %s
                     ORDER  BY created_at DESC
