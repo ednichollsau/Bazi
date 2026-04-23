@@ -65,8 +65,22 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def startup():
+async def startup():
     init_db()
+    import asyncio
+    asyncio.create_task(_gcal_sync_loop())
+
+
+async def _gcal_sync_loop():
+    """Run GCal two-way sync once an hour, forever."""
+    import asyncio
+    from gcal_sync import run_sync
+    while True:
+        try:
+            await asyncio.to_thread(run_sync)
+        except Exception as e:
+            logger.error("GCal background sync error: %s", e)
+        await asyncio.sleep(3600)  # 1 hour
 
 
 # ── Auth helper ────────────────────────────────────────────
@@ -84,6 +98,85 @@ def _check_token(request: Request) -> bool:
             token = auth[7:]
     return bool(DASHBOARD_TOKEN) and token == DASHBOARD_TOKEN
 
+
+# ── Google Calendar OAuth + sync endpoints ─────────────────────────────────────
+
+_GCAL_SCOPES     = ["https://www.googleapis.com/auth/calendar"]
+_GCAL_REDIRECT   = os.environ.get("GCAL_REDIRECT_URI", "https://web-production-1a470.up.railway.app/auth/gcal/callback")
+
+@app.get("/auth/gcal")
+def auth_gcal_start(request: Request):
+    """Step 1: redirect browser to Google's OAuth consent screen."""
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    if not client_id:
+        return JSONResponse({"error": "GOOGLE_CLIENT_ID not set in Railway environment."}, status_code=500)
+    from urllib.parse import urlencode
+    params = urlencode({
+        "client_id":     client_id,
+        "redirect_uri":  _GCAL_REDIRECT,
+        "response_type": "code",
+        "scope":         " ".join(_GCAL_SCOPES),
+        "access_type":   "offline",
+        "prompt":        "consent",  # force refresh_token to be returned
+    })
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+
+
+@app.get("/auth/gcal/callback")
+async def auth_gcal_callback(request: Request, code: str = "", error: str = ""):
+    """Step 2: exchange auth code for tokens and display the refresh token."""
+    if error:
+        return HTMLResponse(f"<h2>OAuth error: {error}</h2>")
+    if not code:
+        return HTMLResponse("<h2>No code returned.</h2>")
+
+    client_id     = os.environ.get("GOOGLE_CLIENT_ID", "")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code":          code,
+                "client_id":     client_id,
+                "client_secret": client_secret,
+                "redirect_uri":  _GCAL_REDIRECT,
+                "grant_type":    "authorization_code",
+            },
+        )
+    data = resp.json()
+    refresh_token = data.get("refresh_token", "")
+    if not refresh_token:
+        return HTMLResponse(f"<h2>No refresh token returned.</h2><pre>{data}</pre>")
+
+    return HTMLResponse(f"""
+<!doctype html><html><head><meta charset=utf-8>
+<title>Google Calendar Connected</title>
+<style>body{{font-family:system-ui;max-width:600px;margin:60px auto;padding:0 20px;}}
+code{{background:#f0f0f0;padding:12px;display:block;word-break:break-all;border-radius:8px;margin:12px 0;}}
+</style></head><body>
+<h2>✅ Google Calendar authorised</h2>
+<p>Copy the refresh token below and add it to Railway as <strong>GOOGLE_REFRESH_TOKEN</strong>:</p>
+<code>{refresh_token}</code>
+<p>Once set, redeploy Railway and the hourly sync will start automatically.</p>
+</body></html>""")
+
+
+@app.post("/api/gcal/sync")
+async def api_gcal_sync(request: Request):
+    """Manually trigger an immediate GCal sync."""
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    import asyncio
+    from gcal_sync import run_sync
+    asyncio.create_task(asyncio.to_thread(run_sync))
+    return {"ok": True, "message": "Sync started in background."}
+
+
+# ── Auth ───────────────────────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):
     email: str
