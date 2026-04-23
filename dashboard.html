@@ -267,7 +267,71 @@
     .status-btn-complete { color: var(--blue); }
     .status-btn-note     { color: var(--grn); background: var(--grn); color: #FAF3E4; border-color: var(--grn); }
 
-    .pulse-empty {
+    
+    /* ── Calendar ───────────────────────────────────────── */
+    .cal-wrap { border-bottom: 1px solid var(--bdr); }
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--grn2); padding: 14px 18px;
+      color: #FAF3E4;
+    }
+    .cal-nav {
+      background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer;
+      font-size: 18px; line-height: 1; padding: 2px 8px; border-radius: 4px;
+      font-family: var(--font); transition: all 0.12s;
+    }
+    .cal-nav:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    .cal-month-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .cal-dow-row {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      background: var(--grn2); padding: 0 10px 10px;
+    }
+    .cal-dow {
+      text-align: center; font-size: 8px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: rgba(255,255,255,0.55);
+    }
+    .cal-days {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      padding: 10px;  gap: 2px;
+      background: var(--cr);
+    }
+    .cal-day {
+      position: relative; aspect-ratio: 1; display: flex; align-items: center;
+      justify-content: center; font-size: 11px; font-weight: 500; color: var(--br);
+      cursor: pointer; border-radius: 50%; transition: all 0.12s; user-select: none;
+    }
+    .cal-day:hover:not(.cal-empty) { background: var(--cra); }
+    .cal-day.other-month { color: var(--bdr2); cursor: default; }
+    .cal-day.other-month:hover { background: none; }
+    .cal-day.has-appt::after {
+      content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px; border-radius: 50%; background: var(--gold);
+    }
+    .cal-day.today { background: var(--grn); color: #FAF3E4; font-weight: 700; }
+    .cal-day.today::after { background: rgba(255,255,255,0.7); }
+    .cal-day.selected:not(.today) {
+      background: var(--grn2); color: #FAF3E4; font-weight: 700;
+    }
+    .cal-day.selected:not(.today)::after { background: rgba(255,255,255,0.7); }
+    .cal-day-label { z-index: 1; position: relative; }
+    .cal-empty { cursor: default; }
+    .pulse-day-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px 8px;
+      background: var(--cra); border-bottom: 1px solid var(--bdr);
+    }
+    .pulse-day-label {
+      font-size: 8px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--grn2);
+    }
+    .pulse-day-count {
+      font-size: 9px; color: var(--brl); font-style: italic;
+    }
+
+.pulse-empty {
       padding: 32px 20px;
       text-align: center;
       font-size: 12px;
@@ -1065,10 +1129,28 @@
       <div class="dash-grid">
 
         <!-- Daily Pulse -->
-        <div class="card">
+        <div class="card" style="overflow:hidden;">
           <div class="card-header">
             <span class="card-title">The Daily Pulse</span>
-            <span id="pulse-date" style="font-size:10px;color:var(--brl);"></span>
+            <button class="btn btn-secondary btn-sm" onclick="openNewApptModal()" style="font-size:8px;padding:4px 10px;">+ Appt</button>
+          </div>
+          <!-- Calendar -->
+          <div class="cal-wrap">
+            <div class="cal-header">
+              <button class="cal-nav" onclick="calNav(-1)">&#8249;</button>
+              <span class="cal-month-label" id="cal-month-label"></span>
+              <button class="cal-nav" onclick="calNav(1)">&#8250;</button>
+            </div>
+            <div class="cal-dow-row">
+              <div class="cal-dow">M</div><div class="cal-dow">T</div><div class="cal-dow">W</div>
+              <div class="cal-dow">T</div><div class="cal-dow">F</div><div class="cal-dow">S</div><div class="cal-dow">S</div>
+            </div>
+            <div class="cal-days" id="cal-days"></div>
+          </div>
+          <!-- Day appointments -->
+          <div class="pulse-day-header">
+            <span class="pulse-day-label" id="pulse-day-label">Today</span>
+            <span class="pulse-day-count" id="pulse-day-count"></span>
           </div>
           <div id="pulse-list"><div class="loading-text">Loading...</div></div>
         </div>
@@ -1535,18 +1617,126 @@ async function loadDashboard() {
   loadQueue();
 }
 
+// ── Calendar state ──────────────────────────────────────────
+let calYear, calMonth, calSelectedDate, calApptDates = {};
+
 async function loadPulse() {
-  const list = document.getElementById('pulse-list');
+  const today = new Date();
+  calYear  = today.getFullYear();
+  calMonth = today.getMonth(); // 0-indexed
+  calSelectedDate = fmtDateISO(today);
+  // Fetch all upcoming appointments to know which dates have bookings
   try {
-    const appts = await api('GET', '/api/appointments/today');
-    if (!appts.length) {
-      list.innerHTML = '<div class="pulse-empty">No appointments today.</div>';
-      return;
-    }
-    list.innerHTML = appts.map(a => renderApptCard(a)).join('');
+    const all = await api('GET', '/api/appointments');
+    calApptDates = {};
+    all.forEach(a => {
+      const d = a.start_dt ? a.start_dt.split('T')[0] : null;
+      if (d) calApptDates[d] = true;
+    });
+  } catch(e) {}
+  renderCalendar();
+  await loadPulseForDate(calSelectedDate);
+}
+
+async function loadPulseForDate(dateStr) {
+  const list  = document.getElementById('pulse-list');
+  const label = document.getElementById('pulse-day-label');
+  const count = document.getElementById('pulse-day-count');
+  const today = fmtDateISO(new Date());
+  label.textContent = dateStr === today ? 'TODAY' : fmtDateLabel(dateStr);
+  list.innerHTML = '<div class="loading-text">Loading...</div>';
+  try {
+    const appts = await api('GET', `/api/appointments?date=${dateStr}`);
+    count.textContent = appts.length ? `${appts.length} appointment${appts.length !== 1 ? 's' : ''}` : '';
+    list.innerHTML = appts.length
+      ? appts.map(a => renderApptCard(a)).join('')
+      : '<div class="pulse-empty">No appointments this day.</div>';
   } catch(e) {
-    list.innerHTML = `<div class="pulse-empty">Could not load appointments.</div>`;
+    list.innerHTML = '<div class="pulse-empty">Could not load appointments.</div>';
+    count.textContent = '';
   }
+}
+
+function fmtDateISO(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
+function fmtDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
+}
+
+function renderCalendar() {
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const label = document.getElementById('cal-month-label');
+  const grid  = document.getElementById('cal-days');
+  if (!label || !grid) return;
+
+  label.textContent = MONTHS[calMonth] + '  ' + calYear;
+
+  const todayStr = fmtDateISO(new Date());
+  const firstDay = new Date(calYear, calMonth, 1);
+  // Week starts Monday: Mon=0 ... Sun=6
+  let startOffset = (firstDay.getDay() + 6) % 7; // days before 1st
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const daysInPrev  = new Date(calYear, calMonth, 0).getDate();
+
+  let html = '';
+  // Previous month filler
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const d = daysInPrev - i;
+    html += `<div class="cal-day other-month"><span class="cal-day-label">${d}</span></div>`;
+  }
+  // Current month days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = calYear + '-' + String(calMonth + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const isToday    = dateStr === todayStr;
+    const isSelected = dateStr === calSelectedDate;
+    const hasAppt    = calApptDates[dateStr];
+    const cls = [
+      'cal-day',
+      isToday    ? 'today'    : '',
+      isSelected ? 'selected' : '',
+      hasAppt    ? 'has-appt' : ''
+    ].filter(Boolean).join(' ');
+    html += `<div class="${cls}" onclick="calSelectDate(\'${dateStr}\')"><span class="cal-day-label">${d}</span></div>`;
+  }
+  // Next month filler to complete grid
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+  for (let d = 1; d <= totalCells - startOffset - daysInMonth; d++) {
+    html += `<div class="cal-day other-month"><span class="cal-day-label">${d}</span></div>`;
+  }
+  grid.innerHTML = html;
+}
+
+async function calSelectDate(dateStr) {
+  calSelectedDate = dateStr;
+  renderCalendar();
+  // If selected date is in a different month, navigate to it
+  const parts = dateStr.split('-');
+  const y = parseInt(parts[0]), m = parseInt(parts[1]) - 1;
+  if (y !== calYear || m !== calMonth) {
+    calYear = y; calMonth = m; renderCalendar();
+  }
+  await loadPulseForDate(dateStr);
+}
+
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  // Fetch new month appointments for dot markers
+  const monthStr = calYear + '-' + String(calMonth + 1).padStart(2,'0');
+  api('GET', `/api/appointments?month=${monthStr}`).then(all => {
+    all.forEach(a => {
+      const d = a.start_dt ? a.start_dt.split('T')[0] : null;
+      if (d) calApptDates[d] = true;
+    });
+    renderCalendar();
+  }).catch(() => renderCalendar());
 }
 
 function renderApptCard(a) {
