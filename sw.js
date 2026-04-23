@@ -1,5 +1,5 @@
 // Bump this version whenever you deploy a change — the SW will auto-update and reload all clients.
-const CACHE = 'ena-v3';
+const CACHE = 'ena-v4';
 
 // ── Install: pre-cache the dashboard shell ──────────────
 self.addEventListener('install', e => {
