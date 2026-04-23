@@ -1923,12 +1923,14 @@ async function loadPatientNotes(patientId) {
   }
 }
 
-function buildZoneSelectorHTML() {
+// idPrefix: '' for new-note form; 'n${noteId}-' for per-note editor
+// onToggleFn: null → toggleZone; string like 'toggleNoteZone.bind(null,5)' for per-note
+function buildZoneSelectorHTML(idPrefix = '', onToggleFn = null) {
   const limbSvg = (side, limbGroup) => `
     <div style="flex:1;min-width:120px;">
       <div style="font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--brl);text-align:center;margin-bottom:6px;">${side}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:6px;overflow:hidden;border:1px solid var(--bdr);">
-        ${buildLimbGrid(side, limbGroup.zones)}
+        ${buildLimbGrid(side, limbGroup.zones, idPrefix, onToggleFn)}
       </div>
     </div>`;
 
@@ -1936,11 +1938,12 @@ function buildZoneSelectorHTML() {
     <div style="margin-bottom:10px;">
       <div style="font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--brl);margin-bottom:5px;">${group.label}</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;">
-        ${group.zones.map(z => `
-          <button id="zone-btn-${zoneId(z)}" data-bg="var(--cra)" onclick="toggleZone('${z}')"
+        ${group.zones.map(z => {
+          const toggle = onToggleFn ? `${onToggleFn}('${z}')` : `toggleZone('${z}')`;
+          return `<button id="zone-btn-${idPrefix}${zoneId(z)}" data-bg="var(--cra)" data-color="var(--br)" onclick="${toggle}"
             style="font-family:var(--font);font-size:9px;padding:4px 9px;border-radius:12px;border:1px solid var(--bdr);background:var(--cra);color:var(--br);cursor:pointer;transition:all 0.12s;letter-spacing:0.04em;">
-            ${z}
-          </button>`).join('')}
+            ${z}</button>`;
+        }).join('')}
       </div>
     </div>`;
 
@@ -1958,25 +1961,104 @@ function buildZoneSelectorHTML() {
     </div>`).join('');
 }
 
+// ── Per-note zone state ──────────────────────────────────────
+const noteZoneSets = {}; // noteId → Set of zone strings
+
+function toggleNoteZone(noteId, zone) {
+  if (!noteZoneSets[noteId]) noteZoneSets[noteId] = new Set();
+  const set = noteZoneSets[noteId];
+  const btn = document.getElementById(`zone-btn-n${noteId}-${zoneId(zone)}`);
+  if (set.has(zone)) {
+    set.delete(zone);
+    if (btn) { btn.style.background = btn.dataset.bg || 'var(--cra)'; btn.style.color = btn.dataset.color || 'var(--br)'; btn.style.borderColor = ''; btn.style.fontWeight = ''; }
+  } else {
+    set.add(zone);
+    if (btn) { btn.style.background = 'var(--grn)'; btn.style.color = '#FAF3E4'; btn.style.borderColor = 'var(--grn)'; btn.style.fontWeight = '700'; }
+  }
+  updateNoteZoneDisplay(noteId);
+}
+
+function updateNoteZoneDisplay(noteId) {
+  const el = document.getElementById(`note-zone-display-${noteId}`);
+  const set = noteZoneSets[noteId] || new Set();
+  if (!el) return;
+  el.innerHTML = set.size
+    ? [...set].map(z => `<span style="font-size:9px;background:var(--grn);color:#FAF3E4;padding:3px 9px;border-radius:12px;font-weight:600;">${z}</span>`).join('')
+    : '<span style="font-size:11px;color:var(--brl);font-style:italic;">None selected</span>';
+  // Update toggle button label too
+  const btn = document.getElementById(`note-zone-toggle-${noteId}`);
+  const body = document.getElementById(`note-zone-body-${noteId}`);
+  if (btn) {
+    const isOpen = body && body.style.display !== 'none';
+    btn.querySelector('.nz-summary').textContent = set.size ? `${set.size} zone${set.size>1?'s':''} · ${isOpen?'▲':'▼'}` : `No zones · ${isOpen?'▲':'▼'}`;
+  }
+}
+
+function toggleNoteZoneEditor(noteId) {
+  const body = document.getElementById(`note-zone-body-${noteId}`);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  updateNoteZoneDisplay(noteId); // refreshes button label
+  // On first open, highlight pre-selected zones
+  if (!open && noteZoneSets[noteId]) {
+    noteZoneSets[noteId].forEach(zone => {
+      const btn = document.getElementById(`zone-btn-n${noteId}-${zoneId(zone)}`);
+      if (btn) { btn.style.background = 'var(--grn)'; btn.style.color = '#FAF3E4'; btn.style.borderColor = 'var(--grn)'; btn.style.fontWeight = '700'; }
+    });
+  }
+}
+
+async function saveNoteZones(noteId, patientId, content) {
+  const zones = [...(noteZoneSets[noteId] || new Set())];
+  try {
+    await api('PUT', `/api/v2/patient-notes/${noteId}`, { content, zones });
+    toast('Note updated');
+    loadPatientNotes(patientId);
+  } catch(e) { toast(e.message, true); }
+}
+
 function renderPatientNotes(patientId, notes) {
   const panel = document.getElementById('tab-panel-notes');
   if (!panel) return;
 
+  // Initialise per-note zone sets from saved data
+  notes.forEach(n => {
+    noteZoneSets[n.id] = new Set(Array.isArray(n.zones) ? n.zones : []);
+  });
+
   const list = notes.map(n => {
     const zones = Array.isArray(n.zones) ? n.zones : [];
-    const zoneChips = zones.length
-      ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
-           ${zones.map(z => `<span style="font-size:9px;background:var(--grn);color:#FAF3E4;padding:3px 9px;border-radius:12px;font-weight:600;letter-spacing:0.03em;">${z}</span>`).join('')}
-         </div>`
-      : '';
+    const zoneSummary = zones.length
+      ? `${zones.length} zone${zones.length > 1 ? 's' : ''}`
+      : 'No zones';
     return `
     <div class="history-item" id="pnote-${n.id}" style="position:relative;padding-bottom:4px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <span style="font-size:10px;font-weight:600;color:var(--brl);letter-spacing:0.08em;text-transform:uppercase;">${fmtDate(n.note_date)}</span>
         <button onclick="deletePatientNote(${n.id},${patientId})" style="background:none;border:none;font-size:10px;color:var(--red);cursor:pointer;padding:2px 6px;">✕</button>
       </div>
-      ${zoneChips}
-      <textarea onblur="savePatientNoteEdit(${n.id},this,${patientId})"
+
+      <!-- Diagnostic zones collapsible -->
+      <div style="border:1px solid var(--bdr);border-radius:4px;overflow:hidden;margin-bottom:10px;">
+        <button id="note-zone-toggle-${n.id}" onclick="toggleNoteZoneEditor(${n.id})"
+          style="width:100%;font-family:var(--font);font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
+                 background:var(--cra);border:none;padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:var(--brl);">
+          <span>Diagnostic Zones</span>
+          <span class="nz-summary" style="font-weight:400;font-style:italic;">${zoneSummary} · ▼</span>
+        </button>
+        <div id="note-zone-body-${n.id}" style="display:none;padding:12px;background:var(--cr);border-top:1px solid var(--bdr);">
+          ${buildZoneSelectorHTML(`n${n.id}-`, `toggleNoteZone.bind(null,${n.id})`)}
+          <div id="note-zone-display-${n.id}" style="display:flex;flex-wrap:wrap;gap:4px;min-height:20px;margin-top:8px;padding-top:8px;border-top:1px solid var(--bdr);">
+            ${zones.length
+              ? zones.map(z => `<span style="font-size:9px;background:var(--grn);color:#FAF3E4;padding:3px 9px;border-radius:12px;font-weight:600;">${z}</span>`).join('')
+              : '<span style="font-size:11px;color:var(--brl);font-style:italic;">None selected</span>'}
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveNoteZones(${n.id},${patientId},document.querySelector('#pnote-${n.id} .note-textarea').value)" style="margin-top:8px;">Update Zones</button>
+        </div>
+      </div>
+
+      <textarea class="note-textarea" onblur="savePatientNoteEdit(${n.id},this,${patientId})"
         style="width:100%;font-family:var(--font);font-size:13px;line-height:1.8;border:none;background:transparent;resize:vertical;color:var(--br);outline:none;min-height:72px;padding:0;"
         >${n.content}</textarea>
     </div>`;
@@ -2137,23 +2219,25 @@ const ZONE_CATEGORIES = [
 
 let selectedZones = new Set();
 
-function buildLimbGrid(side, zones) {
+function buildLimbGrid(side, zones, idPrefix = '', onToggleFn = null) {
   // zones is a flat array of paired [inside, outside, inside, outside, …]
   const rows = [];
   for (let i = 0; i < zones.length; i += 2) rows.push([zones[i], zones[i + 1]]);
+  // Strip "Inside/Outside" prefix; strip trailing " Crease" → "Upper Arm", "Cubital", "Forearm" etc.
+  const short = s => s.replace(/^(Inside|Outside)\s+/, '').replace(/\s+Crease$/, '');
   return rows.map(([inner, outer], i) => {
     const innerFull = `${side} ${inner}`;
     const outerFull = `${side} ${outer}`;
     const bg = i % 2 === 0 ? 'var(--cr)' : 'var(--cra)';
-    // Strip trailing limb-type word so labels stay compact in the grid cell
-    const short = s => s.replace(/ (Upper |Lower )?(Arm|Leg|Crease)$/, '').trim();
+    const innerToggle = onToggleFn ? `${onToggleFn}('${innerFull}')` : `toggleZone('${innerFull}')`;
+    const outerToggle = onToggleFn ? `${onToggleFn}('${outerFull}')` : `toggleZone('${outerFull}')`;
     return `
-      <button id="zone-btn-${zoneId(innerFull)}" data-bg="${bg}" onclick="toggleZone('${innerFull}')"
-        style="font-family:var(--font);font-size:8px;padding:8px 4px;background:${bg};border:none;cursor:pointer;color:var(--brl);letter-spacing:0.04em;line-height:1.3;transition:all 0.12s;">
+      <button id="zone-btn-${idPrefix}${zoneId(innerFull)}" data-bg="${bg}" data-color="var(--brl)" onclick="${innerToggle}"
+        style="font-family:var(--font);font-size:8px;padding:8px 4px;background:${bg};border:none;cursor:pointer;color:var(--brl);letter-spacing:0.04em;line-height:1.3;transition:all 0.12s;text-align:center;">
         ${short(inner)}
       </button>
-      <button id="zone-btn-${zoneId(outerFull)}" data-bg="${bg}" onclick="toggleZone('${outerFull}')"
-        style="font-family:var(--font);font-size:8px;padding:8px 4px;background:${bg};border:none;cursor:pointer;color:var(--brl);letter-spacing:0.04em;line-height:1.3;transition:all 0.12s;">
+      <button id="zone-btn-${idPrefix}${zoneId(outerFull)}" data-bg="${bg}" data-color="var(--brl)" onclick="${outerToggle}"
+        style="font-family:var(--font);font-size:8px;padding:8px 4px;background:${bg};border:none;cursor:pointer;color:var(--brl);letter-spacing:0.04em;line-height:1.3;transition:all 0.12s;text-align:center;">
         ${short(outer)}
       </button>`;
   }).join('');
@@ -2166,18 +2250,18 @@ function toggleZone(zone) {
   if (selectedZones.has(zone)) {
     selectedZones.delete(zone);
     if (btn) {
-      btn.style.background = btn.dataset.bg || 'var(--cra)';
-      btn.style.color = 'var(--brl)';
+      btn.style.background  = btn.dataset.bg    || 'var(--cra)';
+      btn.style.color       = btn.dataset.color || 'var(--br)';
       btn.style.borderColor = '';
-      btn.style.fontWeight = '';
+      btn.style.fontWeight  = '';
     }
   } else {
     selectedZones.add(zone);
     if (btn) {
-      btn.style.background = 'var(--grn)';
-      btn.style.color = '#FAF3E4';
+      btn.style.background  = 'var(--grn)';
+      btn.style.color       = '#FAF3E4';
       btn.style.borderColor = 'var(--grn)';
-      btn.style.fontWeight = '700';
+      btn.style.fontWeight  = '700';
     }
   }
   updateZoneDisplay();
@@ -2200,10 +2284,10 @@ function clearZoneSelection() {
   selectedZones.forEach(z => {
     const btn = document.getElementById('zone-btn-' + zoneId(z));
     if (btn) {
-      btn.style.background = btn.dataset.bg || 'var(--cra)';
-      btn.style.color = 'var(--brl)';
+      btn.style.background  = btn.dataset.bg    || 'var(--cra)';
+      btn.style.color       = btn.dataset.color || 'var(--br)';
       btn.style.borderColor = '';
-      btn.style.fontWeight = '';
+      btn.style.fontWeight  = '';
     }
   });
   selectedZones.clear();
