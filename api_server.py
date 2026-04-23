@@ -102,7 +102,7 @@ def _check_token(request: Request) -> bool:
 # ── Google Calendar OAuth + sync endpoints ─────────────────────────────────────
 
 _GCAL_SCOPES     = ["https://www.googleapis.com/auth/calendar"]
-_GCAL_REDIRECT   = os.environ.get("GCAL_REDIRECT_URI", "https://web-production-1a470.up.railway.app/auth/gcal/callback")
+_GCAL_REDIRECT   = os.environ.get("GCAL_REDIRECT_URI", "https://ednichollsconsole.up.railway.app/auth/gcal/callback")
 
 @app.get("/auth/gcal")
 def auth_gcal_start(request: Request):
