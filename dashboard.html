@@ -588,40 +588,126 @@
     .sws-today-btn:hover { background: var(--cra); }
 
     /* Timeline */
-    .sched-timeline { flex: 1; overflow-y: auto; padding: 20px 32px; }
+    .sched-timeline { flex: 1; overflow-y: auto; padding: 24px 32px 40px; }
     .sched-day-title {
       font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--grn2); margin-bottom: 20px;
+      color: var(--grn2); margin-bottom: 24px;
+    }
+    /* Outer wrapper draws the continuous vertical line behind all items */
+    .timeline-list {
+      position: relative; padding-left: 0;
+    }
+    .timeline-list::before {
+      content: ""; position: absolute;
+      left: 82px; /* time-col width (62) + gap (20) + half dot width (10/2) = 87... adjusted */
+      top: 18px; bottom: 18px;
+      width: 2px; background: var(--bdr);
+      border-radius: 1px;
     }
     .timeline-item {
-      display: flex; gap: 20px; margin-bottom: 16px; align-items: flex-start;
+      display: flex; gap: 20px; margin-bottom: 20px; align-items: flex-start;
+      position: relative;
     }
     .tl-time {
-      width: 62px; flex-shrink: 0; text-align: right; padding-top: 12px;
+      width: 62px; flex-shrink: 0; text-align: right; padding-top: 11px;
     }
-    .tl-time-main { font-size: 12px; font-weight: 600; color: var(--brl); }
-    .tl-time-end  { font-size: 9px;  color: var(--bdr2); margin-top: 2px; }
-    .tl-spine { display: flex; flex-direction: column; align-items: center; padding-top: 14px; flex-shrink: 0; }
+    .tl-time-main { font-size: 11px; font-weight: 600; color: var(--brl); letter-spacing: 0.04em; }
+    .tl-time-end  { font-size: 9px; color: var(--bdr2); margin-top: 2px; }
+    .tl-spine {
+      display: flex; flex-direction: column; align-items: center;
+      padding-top: 14px; flex-shrink: 0; z-index: 2; width: 14px;
+    }
     .tl-dot {
-      width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--grn);
-      background: var(--cr); flex-shrink: 0; z-index: 1;
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2.5px solid var(--grn); background: var(--cr);
+      flex-shrink: 0; transition: all 0.2s;
     }
-    .tl-dot.active { background: var(--grn); }
-    .tl-line { width: 2px; flex: 1; min-height: 30px; background: var(--bdr); margin-top: 2px; }
+    .tl-dot.active {
+      background: var(--grn);
+      box-shadow: 0 0 0 4px rgba(77,93,83,0.15);
+    }
     .tl-card {
       flex: 1; background: var(--cr); border: 1px solid var(--bdr);
-      border-radius: 6px; padding: 14px 18px; cursor: pointer;
-      transition: all 0.12s; border-left: 3px solid var(--grn);
+      border-radius: 14px; padding: 14px 18px; cursor: pointer;
+      transition: all 0.15s; border-left: 3px solid var(--grn);
+      box-shadow: 0 1px 4px rgba(44,26,14,0.05);
     }
-    .tl-card:hover { background: #F5EEE3; box-shadow: 0 2px 8px rgba(44,26,14,0.08); }
-    .tl-card.status-checked_in  { border-left-color: var(--gold); }
+    .tl-card:hover { background: #F7F0E5; box-shadow: 0 3px 12px rgba(44,26,14,0.1); transform: translateY(-1px); }
+    .tl-card.status-checked_in   { border-left-color: var(--gold); }
     .tl-card.status-in_treatment { border-left-color: #2D7A45; }
     .tl-card.status-completed    { border-left-color: var(--blue); }
     .tl-card.status-cancelled    { border-left-color: var(--red); opacity: 0.6; }
-    .tl-name { font-size: 14px; font-weight: 600; color: var(--br); margin-bottom: 4px; }
+    .tl-name { font-size: 14px; font-weight: 600; color: var(--br); margin-bottom: 3px; }
     .tl-type { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brl); margin-bottom: 10px; }
     .tl-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .sched-empty { text-align: center; padding: 60px 20px; font-size: 13px; color: var(--brl); font-style: italic; }
+
+    /* ── Schedule Month/Day toggle ──────────────────────── */
+    .sched-view-tabs {
+      display: flex; gap: 2px; background: var(--bdr); border-radius: 8px; padding: 2px;
+    }
+    .svt-btn {
+      font-family: var(--font); font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      padding: 5px 16px; border: none; border-radius: 6px; cursor: pointer;
+      background: none; color: var(--brl); transition: all 0.15s;
+    }
+    .svt-btn.active { background: var(--grn); color: #FAF3E4; }
+    .svt-btn:hover:not(.active) { background: var(--cra); color: var(--br); }
+
+    /* ── Schedule Month grid view ───────────────────────── */
+    .sched-month-wrap {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+      padding: 0 32px 32px;
+    }
+    .sched-month-nav {
+      display: flex; align-items: center; gap: 16px; padding: 12px 0 16px;
+    }
+    .sched-month-title {
+      font-size: 13px; font-weight: 700; color: var(--br); letter-spacing: 0.05em; flex: 1; text-align: center;
+    }
+    .month-grid-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .month-dow-row {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      border-bottom: 1px solid var(--bdr); margin-bottom: 4px;
+    }
+    .month-dow-row span {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--brl); text-align: center; padding: 8px 0;
+    }
+    .month-grid {
+      flex: 1; display: grid; grid-template-columns: repeat(7, 1fr);
+      grid-auto-rows: 1fr; gap: 4px; overflow-y: auto;
+    }
+    .month-cell {
+      min-height: 80px; background: var(--cr); border: 1px solid var(--bdr);
+      border-radius: 10px; padding: 8px; cursor: pointer; transition: all 0.12s;
+      display: flex; flex-direction: column; gap: 3px; position: relative;
+    }
+    .month-cell:hover { background: var(--cra); border-color: var(--grn2); }
+    .month-cell.mc-today { border-color: var(--grn); }
+    .month-cell.mc-selected { background: rgba(77,93,83,0.07); border-color: var(--grn); }
+    .month-cell.mc-other { background: transparent; border-color: transparent; cursor: default; }
+    .month-cell.mc-other:hover { background: transparent; border-color: transparent; }
+    .mc-day-num {
+      font-size: 11px; font-weight: 600; color: var(--br); line-height: 1;
+    }
+    .month-cell.mc-today .mc-day-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 50%; background: var(--grn); color: #FAF3E4;
+    }
+    .month-cell.mc-other .mc-day-num { color: var(--bdr2); font-weight: 400; }
+    .month-event-pill {
+      font-size: 9px; font-weight: 600; letter-spacing: 0.02em;
+      background: var(--grn2); color: #FAF3E4; border-radius: 4px;
+      padding: 2px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .month-event-pill.status-confirmed  { background: var(--grn2); }
+    .month-event-pill.status-checked_in { background: var(--gold); color: var(--br); }
+    .month-event-pill.status-in_treatment { background: #2D7A45; }
+    .month-event-pill.status-completed  { background: var(--blue); }
+    .month-event-pill.status-cancelled  { background: var(--bdr2); opacity: 0.7; }
+    .mc-more { font-size: 9px; color: var(--brl); margin-top: 1px; }
 
     /* ── Notes page ─────────────────────────────────────── */
     .notes-layout { flex: 1; overflow-y: auto; padding: 24px 32px; }
@@ -1281,17 +1367,39 @@
     ═════════════════════════════════════════════════ -->
     <div id="page-schedule" class="page">
       <div class="page-header">
-        <div>
-          <div class="page-eyebrow">Calendar</div>
-          <h1 id="sched-day-heading">Schedule</h1>
+        <div style="display:flex;align-items:center;gap:20px;">
+          <div>
+            <div class="page-eyebrow">Calendar</div>
+            <h1 id="sched-day-heading">Schedule</h1>
+          </div>
+          <!-- Month / Day toggle -->
+          <div class="sched-view-tabs" id="sched-view-tabs">
+            <button class="svt-btn active" id="svt-month" onclick="schedSetView('month')">Month</button>
+            <button class="svt-btn" id="svt-day"   onclick="schedSetView('day')">Day</button>
+          </div>
         </div>
         <div class="header-actions">
           <button class="btn btn-primary btn-sm" onclick="openNewApptModal()">+ New Appointment</button>
         </div>
       </div>
-      <div class="sched-layout">
 
-        <!-- Left: mini monthly calendar -->
+      <!-- MONTH VIEW -->
+      <div id="sched-month-view" class="sched-month-wrap">
+        <div class="sched-month-nav">
+          <button class="smc-nav" style="color:var(--br);" onclick="monthNav(-1)">&#8249;</button>
+          <span class="sched-month-title" id="month-view-label"></span>
+          <button class="smc-nav" style="color:var(--br);" onclick="monthNav(1)">&#8250;</button>
+        </div>
+        <div class="month-grid-wrap">
+          <div class="month-dow-row">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+          <div class="month-grid" id="month-grid"></div>
+        </div>
+      </div>
+
+      <!-- DAY VIEW -->
+      <div id="sched-day-view-wrap" class="sched-layout" style="display:none;">
         <div class="sched-mini-cal">
           <div class="smc-header">
             <button class="smc-nav" onclick="smcNav(-1)">&#8249;</button>
@@ -1307,18 +1415,14 @@
             <div id="upcoming-list"><div class="loading-text">Loading...</div></div>
           </div>
         </div>
-
-        <!-- Right: day view -->
         <div class="sched-day-view">
-          <!-- Week strip -->
           <div class="sched-week-strip" id="sched-week-strip"></div>
-          <!-- Timeline -->
           <div class="sched-timeline" id="sched-timeline">
             <div class="loading-text">Loading...</div>
           </div>
         </div>
-
       </div>
+
     </div><!-- /schedule -->
 
     <!-- ════════════════════════════════════════════════
@@ -2570,10 +2674,121 @@ function getWeekStart(d) {
 }
 
 // ══════════════════════════════════════════════════
-// SCHEDULE — mini-cal + week strip + timeline
+// SCHEDULE — month view + mini-cal + week strip + timeline
 // ══════════════════════════════════════════════════
 let smcYear, smcMonth, smcSelectedDate, smcApptDates = {};
 let schedWeekStart; // Monday of displayed week
+let monthViewYear, monthViewMonth; // month grid view state
+let schedCurrentView = 'month'; // 'month' | 'day'
+
+function schedSetView(view) {
+  schedCurrentView = view;
+  const monthWrap = document.getElementById('sched-month-view');
+  const dayWrap   = document.getElementById('sched-day-view-wrap');
+  const btnMonth  = document.getElementById('svt-month');
+  const btnDay    = document.getElementById('svt-day');
+  if (view === 'month') {
+    if (monthWrap) monthWrap.style.display = '';
+    if (dayWrap)   dayWrap.style.display   = 'none';
+    if (btnMonth) { btnMonth.classList.add('active'); }
+    if (btnDay)   { btnDay.classList.remove('active'); }
+    renderMonthGrid();
+  } else {
+    if (monthWrap) monthWrap.style.display = 'none';
+    if (dayWrap)   dayWrap.style.display   = '';
+    if (btnMonth) { btnMonth.classList.remove('active'); }
+    if (btnDay)   { btnDay.classList.add('active'); }
+    renderSmallCal();
+    renderWeekStrip();
+    loadScheduleDay(smcSelectedDate);
+    loadUpcoming();
+  }
+}
+
+function monthNav(dir) {
+  monthViewMonth += dir;
+  if (monthViewMonth > 11) { monthViewMonth = 0; monthViewYear++; }
+  if (monthViewMonth < 0)  { monthViewMonth = 11; monthViewYear--; }
+  renderMonthGrid();
+}
+
+async function renderMonthGrid() {
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const label = document.getElementById('month-view-label');
+  const grid  = document.getElementById('month-grid');
+  if (!grid) return;
+  if (label) label.textContent = MONTHS[monthViewMonth] + ' ' + monthViewYear;
+
+  const todayStr = fmtDateISO(new Date());
+  const firstDay = new Date(monthViewYear, monthViewMonth, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(monthViewYear, monthViewMonth + 1, 0).getDate();
+  const daysInPrev  = new Date(monthViewYear, monthViewMonth, 0).getDate();
+  const totalCells  = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+
+  // Render skeleton immediately
+  let html = '';
+  for (let i = startOffset - 1; i >= 0; i--)
+    html += `<div class="month-cell mc-other"><div class="mc-day-num">${daysInPrev - i}</div></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = monthViewYear + '-' + String(monthViewMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const cls = ['month-cell',
+      dateStr === todayStr        ? 'mc-today'    : '',
+      dateStr === smcSelectedDate ? 'mc-selected' : ''
+    ].filter(Boolean).join(' ');
+    html += `<div class="${cls}" id="mc-${dateStr}" onclick="monthCellClick('${dateStr}')"><div class="mc-day-num">${d}</div></div>`;
+  }
+  for (let d = 1; d <= totalCells - startOffset - daysInMonth; d++)
+    html += `<div class="month-cell mc-other"><div class="mc-day-num">${d}</div></div>`;
+  grid.innerHTML = html;
+
+  // Fetch appointments for this month and fill in pills
+  try {
+    const ym = monthViewYear + '-' + String(monthViewMonth+1).padStart(2,'0');
+    const all = await api('GET', '/api/appointments');
+    const monthAppts = all.filter(a => a.start_dt && a.start_dt.startsWith(ym));
+    // Group by date
+    const byDate = {};
+    monthAppts.forEach(a => {
+      const d = a.start_dt.split('T')[0];
+      (byDate[d] = byDate[d] || []).push(a);
+    });
+    // Inject pills
+    for (const [dateStr, appts] of Object.entries(byDate)) {
+      const cell = document.getElementById('mc-' + dateStr);
+      if (!cell) continue;
+      const show = appts.slice(0, 2);
+      const more = appts.length - show.length;
+      show.forEach(a => {
+        const time = a.start_dt ? a.start_dt.split('T')[1]?.slice(0,5) : '';
+        const pill = document.createElement('div');
+        pill.className = `month-event-pill status-${a.status}`;
+        pill.textContent = (time ? time + ' ' : '') + (a.patient_name || 'Appt');
+        pill.onclick = (e) => { e.stopPropagation(); monthCellClick(dateStr); };
+        cell.appendChild(pill);
+      });
+      if (more > 0) {
+        const m = document.createElement('div');
+        m.className = 'mc-more';
+        m.textContent = `+${more} more`;
+        cell.appendChild(m);
+      }
+    }
+  } catch(e) {}
+}
+
+function monthCellClick(dateStr) {
+  smcSelectedDate = dateStr;
+  const d = new Date(dateStr + 'T12:00:00');
+  smcYear  = d.getFullYear();
+  smcMonth = d.getMonth();
+  monthViewYear  = smcYear;
+  monthViewMonth = smcMonth;
+  schedWeekStart = getWeekStart(d);
+  // Switch to day view for selected date
+  schedSetView('day');
+}
 
 async function loadSchedule() {
   const today = new Date();
@@ -2581,12 +2796,11 @@ async function loadSchedule() {
   smcMonth = today.getMonth();
   smcSelectedDate = fmtDateISO(today);
   schedWeekStart  = getWeekStart(today);
-  // Render calendar shell immediately — dots added once API responds
-  renderSmallCal();
-  renderWeekStrip();
-  loadScheduleDay(smcSelectedDate); // fire-and-forget; handles own loading state
-  loadUpcoming();
-  // Fetch appointment dates for dot markers in the background
+  monthViewYear   = smcYear;
+  monthViewMonth  = smcMonth;
+  // Default to month view
+  schedSetView('month');
+  // Fetch all appointment dates for dot markers (used in day view)
   try {
     const all = await api('GET', '/api/appointments');
     smcApptDates = {};
@@ -2594,8 +2808,6 @@ async function loadSchedule() {
       const d = a.start_dt ? a.start_dt.split('T')[0] : null;
       if (d) smcApptDates[d] = true;
     });
-    renderSmallCal();   // re-render with dots
-    renderWeekStrip();  // re-render with dots
   } catch(e) {}
 }
 
@@ -2694,7 +2906,7 @@ async function loadScheduleDay(dateStr) {
       return;
     }
     const nowStr = new Date().toTimeString().slice(0,5);
-    tl.innerHTML = appts.map((a, i) => {
+    const items = appts.map((a, i) => {
       const timeStr = a.start_dt ? a.start_dt.split('T')[1]?.slice(0,5) : '';
       const isActive = timeStr && timeStr <= nowStr && i === appts.findIndex(x => (x.start_dt||'').split('T')[1]?.slice(0,5) >= nowStr) - 1;
       const endTime = a.end_dt ? a.end_dt.split('T')[1]?.slice(0,5) : '';
@@ -2715,7 +2927,6 @@ async function loadScheduleDay(dateStr) {
         </div>
         <div class="tl-spine">
           <div class="tl-dot${isActive ? ' active' : ''}"></div>
-          ${i < appts.length - 1 ? '<div class="tl-line"></div>' : ''}
         </div>
         <div class="tl-card status-${a.status}" onclick="loadSnapshot(${a.patient_id})">
           <div class="tl-name">${a.patient_name || '—'}</div>
@@ -2724,6 +2935,7 @@ async function loadScheduleDay(dateStr) {
         </div>
       </div>`;
     }).join('');
+    tl.innerHTML = `<div class="timeline-list">${items}</div>`;
   } catch(e) {
     tl.innerHTML = '<div class="sched-empty">Could not load appointments.</div>';
   }
