@@ -1393,7 +1393,12 @@ def manifest():
 def service_worker():
     try:
         with open("sw.js", "rb") as f:
-            return Response(content=f.read(), media_type="application/javascript")
+            # Must never be cached — browser must re-fetch on every load to detect updates
+            return Response(
+                content=f.read(),
+                media_type="application/javascript",
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Service-Worker-Allowed": "/"}
+            )
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="sw.js not found.")
 
@@ -1445,6 +1450,7 @@ def dashboard(request: Request):
             html = html.replace('href="/icon-192.png"', f'href="{ico_uri}"')
         except FileNotFoundError:
             pass  # icon not found — leave href as-is
-        return HTMLResponse(html)
+        # Never let Railway/CDN/browser cache the dashboard HTML — always serve fresh
+        return HTMLResponse(html, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="dashboard.html not found.")
