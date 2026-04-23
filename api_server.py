@@ -165,7 +165,7 @@ code{{background:#f0f0f0;padding:12px;display:block;word-break:break-all;border-
 </body></html>""")
 
 
-@app.post("/api/gcal/sync")
+@app.get("/api/gcal/sync")
 async def api_gcal_sync(request: Request):
     """Manually trigger an immediate GCal sync."""
     if not _check_token(request):
