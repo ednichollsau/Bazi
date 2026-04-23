@@ -2211,9 +2211,20 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <script>
   if ('serviceWorker' in navigator) {
+    // Auto-refresh when a new service worker takes over,
+    // so dashboard updates are always visible immediately.
+    let swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!swRefreshing) {
+        swRefreshing = true;
+        window.location.reload();
+      }
+    });
+
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').then(reg => {
-        console.log('SW registered:', reg.scope);
+        // Check for updates every 60 seconds (catches deployments mid-session)
+        setInterval(() => reg.update(), 60000);
       }).catch(err => {
         console.warn('SW registration failed:', err);
       });
