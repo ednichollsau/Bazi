@@ -1,4 +1,4 @@
-const CACHE = 'ena-v1';
+const CACHE = 'ena-v2';
 const OFFLINE = ['/dashboard?token=earseed2026'];
 
 self.addEventListener('install', e => {
