@@ -1442,15 +1442,15 @@ def icon_512():
 
 # ── Practitioner dashboard ─────────────────────────────────
 
+@app.get("/")
+def root():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/dashboard")
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
-    if not _check_token(request):
-        return HTMLResponse("""<!DOCTYPE html><html><head>
-        <meta charset="UTF-8"><title>Access denied</title>
-        <style>body{font-family:sans-serif;display:flex;align-items:center;
-        justify-content:center;height:100vh;margin:0;background:#FAF3E4;color:#2C1A0E;}
-        </style></head><body><p style="font-size:14px">Access denied — invalid or missing token.</p>
-        </body></html>""", status_code=403)
+    # The HTML shell is public — the JS login screen handles auth.
+    # All data API endpoints still require a valid token.
     token = request.query_params.get("token", "")
     try:
         with open("dashboard.html", "r") as f:
