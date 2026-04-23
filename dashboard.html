@@ -2571,109 +2571,186 @@ function getWeekStart(d) {
   return start;
 }
 
+async // ══════════════════════════════════════════════════
+// SCHEDULE — mini-cal + week strip + timeline
+// ══════════════════════════════════════════════════
+let smcYear, smcMonth, smcSelectedDate, smcApptDates = {};
+let schedWeekStart; // Monday of displayed week
+
 async function loadSchedule() {
-  if (!currentWeekStart) currentWeekStart = getWeekStart(new Date());
-  await renderWeekGrid();
+  const today = new Date();
+  smcYear  = today.getFullYear();
+  smcMonth = today.getMonth();
+  smcSelectedDate = fmtDateISO(today);
+  schedWeekStart  = getWeekStart(today);
+  // Fetch all upcoming to populate dot markers
+  try {
+    const all = await api('GET', '/api/appointments');
+    smcApptDates = {};
+    all.forEach(a => {
+      const d = a.start_dt ? a.start_dt.split('T')[0] : null;
+      if (d) smcApptDates[d] = true;
+    });
+  } catch(e) {}
+  renderSmallCal();
+  renderWeekStrip();
+  await loadScheduleDay(smcSelectedDate);
   loadUpcoming();
 }
 
-async function renderWeekGrid() {
-  const ws = currentWeekStart;
-  const we = new Date(ws); we.setDate(ws.getDate() + 6);
-  document.getElementById('week-label').textContent =
-    ws.toLocaleDateString('en-GB', {day:'numeric', month:'short'}) + ' – ' +
-    we.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+function renderSmallCal() {
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const label = document.getElementById('smc-label');
+  const grid  = document.getElementById('smc-days');
+  if (!label || !grid) return;
+  label.textContent = MONTHS[smcMonth].slice(0,3).toUpperCase() + '  ' + smcYear;
 
-  const days = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(ws); d.setDate(ws.getDate() + i);
-    days.push(d);
+  const todayStr   = fmtDateISO(new Date());
+  const firstDay   = new Date(smcYear, smcMonth, 1);
+  let startOffset  = (firstDay.getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(smcYear, smcMonth + 1, 0).getDate();
+  const daysInPrev  = new Date(smcYear, smcMonth, 0).getDate();
+
+  let html = '';
+  for (let i = startOffset - 1; i >= 0; i--)
+    html += `<div class="smc-day smc-other">${daysInPrev - i}</div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = smcYear + '-' + String(smcMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const cls = ['smc-day',
+      dateStr === todayStr      ? 'smc-today'    : '',
+      dateStr === smcSelectedDate ? 'smc-selected' : '',
+      smcApptDates[dateStr]     ? 'smc-has'      : ''
+    ].filter(Boolean).join(' ');
+    html += `<div class="${cls}" onclick="smcSelect('${dateStr}')">${d}</div>`;
   }
-
-  // Fetch appointments for each day of the week
-  const dateStr = ws.toISOString().split('T')[0];
-  const endStr  = we.toISOString().split('T')[0];
-  let appts = [];
-  try {
-    // Fetch a wider range by calling list for each day
-    const fetches = days.map(d =>
-      api('GET', `/api/appointments?date=${d.toISOString().split('T')[0]}`)
-    );
-    const results = await Promise.all(fetches);
-    appts = results.flat();
-  } catch(e) {}
-
-  const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const HOURS = [];
-  for (let h = 7; h <= 20; h++) HOURS.push(h);
-
-  const today = new Date();
-
-  let html = '<div class="week-grid">';
-
-  // Corner + day headers
-  html += '<div class="wg-header" style="background:var(--cra);"></div>';
-  days.forEach((d, i) => {
-    const isToday = d.toDateString() === today.toDateString();
-    html += `<div class="wg-header">
-      <div class="wg-day-name">${DAY_NAMES[i]}</div>
-      <div class="wg-day-num ${isToday ? 'today' : ''}">${d.getDate()}</div>
-    </div>`;
-  });
-
-  // Time rows
-  HOURS.forEach(h => {
-    const label = `${String(h).padStart(2,'0')}:00`;
-    html += `<div class="wg-time-label">${label}</div>`;
-    days.forEach(d => {
-      const slotAppts = appts.filter(a => {
-        const ad = new Date(a.start_dt);
-        return ad.toDateString() === d.toDateString() && ad.getHours() === h;
-      });
-      const dateISO = d.toISOString().split('T')[0];
-      const apptHtml = slotAppts.map(a =>
-        `<div class="wg-appt" onclick="event.stopPropagation();loadSnapshot(${a.patient_id})">
-          <div class="wg-appt-name">${a.patient_name || '—'}</div>
-          <div class="wg-appt-type">${a.appointment_type || ''}</div>
-        </div>`
-      ).join('');
-      html += `<div class="wg-cell" onclick="openNewApptModal(null,'${dateISO}','${label}')">${apptHtml}</div>`;
-    });
-  });
-
-  html += '</div>';
-  document.getElementById('week-grid-wrap').innerHTML = html;
+  const total = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+  for (let d = 1; d <= total - startOffset - daysInMonth; d++)
+    html += `<div class="smc-day smc-other">${d}</div>`;
+  grid.innerHTML = html;
 }
 
-function changeWeek(dir) {
-  if (dir === 0) {
-    currentWeekStart = getWeekStart(new Date());
-  } else {
-    currentWeekStart.setDate(currentWeekStart.getDate() + (dir * 7));
+function smcNav(dir) {
+  smcMonth += dir;
+  if (smcMonth > 11) { smcMonth = 0; smcYear++; }
+  if (smcMonth < 0)  { smcMonth = 11; smcYear--; }
+  renderSmallCal();
+}
+
+async function smcSelect(dateStr) {
+  smcSelectedDate = dateStr;
+  const d = new Date(dateStr + 'T12:00:00');
+  smcYear  = d.getFullYear();
+  smcMonth = d.getMonth();
+  schedWeekStart = getWeekStart(d);
+  renderSmallCal();
+  renderWeekStrip();
+  await loadScheduleDay(dateStr);
+}
+
+function renderWeekStrip() {
+  const strip = document.getElementById('sched-week-strip');
+  if (!strip) return;
+  const todayStr = fmtDateISO(new Date());
+  const DOW = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+  let daysHtml = '';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(schedWeekStart); d.setDate(schedWeekStart.getDate() + i);
+    const dateStr = fmtDateISO(d);
+    const cls = ['sws-day',
+      dateStr === todayStr       ? 'sws-today'    : '',
+      dateStr === smcSelectedDate ? 'sws-selected' : '',
+      smcApptDates[dateStr]      ? 'sws-has-appt' : ''
+    ].filter(Boolean).join(' ');
+    daysHtml += `<div class="${cls}" onclick="smcSelect('${dateStr}')">
+      <div class="sws-day-name">${DOW[i]}</div>
+      <div class="sws-day-num">${d.getDate()}</div>
+    </div>`;
   }
-  renderWeekGrid();
+  strip.innerHTML = `
+    <button class="sws-nav" onclick="schedChangeWeek(-1)">&#8249;</button>
+    <div class="sws-days">${daysHtml}</div>
+    <button class="sws-nav" onclick="schedChangeWeek(1)">&#8250;</button>
+    <button class="sws-today-btn" onclick="smcSelect('${todayStr}')">Today</button>`;
+}
+
+function schedChangeWeek(dir) {
+  schedWeekStart.setDate(schedWeekStart.getDate() + dir * 7);
+  renderWeekStrip();
+}
+
+async function loadScheduleDay(dateStr) {
+  const tl = document.getElementById('sched-timeline');
+  if (!tl) return;
+  const d = new Date(dateStr + 'T12:00:00');
+  const heading = document.getElementById('sched-day-heading');
+  if (heading) heading.textContent = d.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'});
+  tl.innerHTML = '<div class="loading-text">Loading...</div>';
+  try {
+    const appts = await api('GET', `/api/appointments?date=${dateStr}`);
+    if (!appts.length) {
+      tl.innerHTML = '<div class="sched-empty">No appointments this day.</div>';
+      return;
+    }
+    const nowStr = new Date().toTimeString().slice(0,5);
+    tl.innerHTML = appts.map((a, i) => {
+      const timeStr = a.start_dt ? a.start_dt.split('T')[1]?.slice(0,5) : '';
+      const isActive = timeStr && timeStr <= nowStr && i === appts.findIndex(x => (x.start_dt||'').split('T')[1]?.slice(0,5) >= nowStr) - 1;
+      const endTime = a.end_dt ? a.end_dt.split('T')[1]?.slice(0,5) : '';
+      const statusHtml = `<span class="badge badge-${a.status}">${statusLabel(a.status)}</span>`;
+      let actions = '';
+      if (a.status === 'confirmed')
+        actions += `<button class="status-btn status-btn-checkin" onclick="event.stopPropagation();setStatus(${a.id},'checked_in')">Check In</button>`;
+      if (a.status === 'checked_in')
+        actions += `<button class="status-btn status-btn-treat" onclick="event.stopPropagation();setStatus(${a.id},'in_treatment')">Start</button>`;
+      if (a.status === 'in_treatment')
+        actions += `<button class="status-btn status-btn-complete" onclick="event.stopPropagation();setStatus(${a.id},'completed')">Complete</button>`;
+      if (a.status === 'completed' && !a.note_id)
+        actions += `<button class="status-btn status-btn-note" onclick="event.stopPropagation();openNoteModal(${a.id},${a.patient_id})">Write Note</button>`;
+      return `<div class="timeline-item">
+        <div class="tl-time">
+          <div class="tl-time-main">${timeStr || '—'}</div>
+          ${endTime ? `<div class="tl-time-end">${endTime}</div>` : ''}
+        </div>
+        <div class="tl-spine">
+          <div class="tl-dot${isActive ? ' active' : ''}"></div>
+          ${i < appts.length - 1 ? '<div class="tl-line"></div>' : ''}
+        </div>
+        <div class="tl-card status-${a.status}" onclick="loadSnapshot(${a.patient_id})">
+          <div class="tl-name">${a.patient_name || '—'}</div>
+          <div class="tl-type">${a.appointment_type || 'Appointment'}</div>
+          <div class="tl-actions">${statusHtml}${actions}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    tl.innerHTML = '<div class="sched-empty">Could not load appointments.</div>';
+  }
 }
 
 async function loadUpcoming() {
   const list = document.getElementById('upcoming-list');
+  if (!list) return;
   try {
     const appts = await api('GET', '/api/appointments');
-    const upcoming = appts.slice(0, 10);
+    const upcoming = appts.slice(0, 8);
     if (!upcoming.length) {
-      list.innerHTML = '<div class="text-muted">No upcoming appointments.</div>';
+      list.innerHTML = '<div class="text-muted" style="padding:0 12px;font-size:11px;">No upcoming appointments.</div>';
       return;
     }
     list.innerHTML = upcoming.map(a => `
-      <div class="history-item" style="cursor:pointer;" onclick="loadSnapshot(${a.patient_id})">
-        <div class="history-date">${fmtDate(a.start_dt)} · ${fmtTime(a.start_dt)}</div>
-        <div class="history-title">${a.patient_name || '—'}</div>
-        <div class="history-sub">${a.appointment_type || ''}</div>
-      </div>
-    `).join('');
+      <div class="smc-upcoming-row" onclick="smcSelect('${(a.start_dt||'').split('T')[0]}')">
+        <div class="smc-upcoming-dot"></div>
+        <div>
+          <div class="smc-upcoming-name">${a.patient_name || '—'}</div>
+          <div class="smc-upcoming-meta">${fmtDate(a.start_dt)} · ${fmtTime(a.start_dt)}</div>
+        </div>
+      </div>`).join('');
   } catch(e) {
-    list.innerHTML = '<div class="text-muted">Could not load.</div>';
+    list.innerHTML = '<div class="text-muted" style="padding:0 12px;font-size:11px;">Could not load.</div>';
   }
 }
+
 
 // ══════════════════════════════════════════════════
 // NOTES
