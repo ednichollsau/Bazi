@@ -1528,6 +1528,9 @@ async function loadDashboard() {
   document.getElementById('pulse-date').textContent =
     today.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
 
+  // Pre-fetch appointment types so the modal is ready immediately
+  try { allApptTypes = await api('GET', '/api/appointment-types'); } catch(e) {}
+
   loadPulse();
   loadQueue();
 }
@@ -2482,14 +2485,21 @@ async function openNewApptModal(presetPatientId = null, presetDate = null, prese
   if (presetPatientId) pSel.value = presetPatientId;
 
   const tSel = document.getElementById('appt-type-id');
+  if (!allApptTypes.length) {
+    // Retry fetch in case it wasn't loaded yet
+    try { allApptTypes = await api('GET', '/api/appointment-types'); } catch(e) {}
+  }
   tSel.innerHTML = '<option value="">Select type...</option>' +
     allApptTypes.map(t => `<option value="${t.id}">${t.name} (${t.duration} min)</option>`).join('');
+  if (!allApptTypes.length) {
+    tSel.innerHTML = '<option value="">⚠ No appointment types found</option>';
+  }
 
   if (presetDate) document.getElementById('appt-date').value = presetDate;
   else document.getElementById('appt-date').value = new Date().toISOString().split('T')[0];
 
   if (presetTime) document.getElementById('appt-time').value = presetTime.slice(0,5);
-  else document.getElementById('appt-time').value = '';
+  else document.getElementById('appt-time').value = '09:00';
 
   document.getElementById('appt-notes').value = '';
   openModal('modal-appt');
