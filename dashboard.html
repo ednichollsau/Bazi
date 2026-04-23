@@ -1707,7 +1707,9 @@ async function loadPulse() {
   calYear  = today.getFullYear();
   calMonth = today.getMonth(); // 0-indexed
   calSelectedDate = fmtDateISO(today);
-  // Fetch all upcoming appointments to know which dates have bookings
+  // Render calendar immediately, fetch dot markers in background
+  renderCalendar();
+  loadPulseForDate(calSelectedDate);
   try {
     const all = await api('GET', '/api/appointments');
     calApptDates = {};
@@ -1715,9 +1717,8 @@ async function loadPulse() {
       const d = a.start_dt ? a.start_dt.split('T')[0] : null;
       if (d) calApptDates[d] = true;
     });
+    renderCalendar(); // re-render with dots
   } catch(e) {}
-  renderCalendar();
-  await loadPulseForDate(calSelectedDate);
 }
 
 async function loadPulseForDate(dateStr) {
@@ -2559,9 +2560,6 @@ function clearZoneSelection() {
 }
 
 
-// ══════════════════════════════════════════════════
-// SCHEDULE
-// ══════════════════════════════════════════════════
 function getWeekStart(d) {
   const day = d.getDay();
   const diff = (day === 0 ? -6 : 1 - day);
@@ -2571,7 +2569,7 @@ function getWeekStart(d) {
   return start;
 }
 
-async // ══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // SCHEDULE — mini-cal + week strip + timeline
 // ══════════════════════════════════════════════════
 let smcYear, smcMonth, smcSelectedDate, smcApptDates = {};
@@ -2583,7 +2581,12 @@ async function loadSchedule() {
   smcMonth = today.getMonth();
   smcSelectedDate = fmtDateISO(today);
   schedWeekStart  = getWeekStart(today);
-  // Fetch all upcoming to populate dot markers
+  // Render calendar shell immediately — dots added once API responds
+  renderSmallCal();
+  renderWeekStrip();
+  loadScheduleDay(smcSelectedDate); // fire-and-forget; handles own loading state
+  loadUpcoming();
+  // Fetch appointment dates for dot markers in the background
   try {
     const all = await api('GET', '/api/appointments');
     smcApptDates = {};
@@ -2591,11 +2594,9 @@ async function loadSchedule() {
       const d = a.start_dt ? a.start_dt.split('T')[0] : null;
       if (d) smcApptDates[d] = true;
     });
+    renderSmallCal();   // re-render with dots
+    renderWeekStrip();  // re-render with dots
   } catch(e) {}
-  renderSmallCal();
-  renderWeekStrip();
-  await loadScheduleDay(smcSelectedDate);
-  loadUpcoming();
 }
 
 function renderSmallCal() {
