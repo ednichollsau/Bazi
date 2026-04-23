@@ -1878,26 +1878,312 @@ function renderPatientDetail(p, hist) {
       <button class="btn btn-secondary btn-sm" onclick="openEditPatientModal(${p.id})">Edit Details</button>
     </div>
     ${p.notes ? `<div style="background:var(--cr);border:1px solid var(--bdr);padding:14px 16px;margin-bottom:20px;border-left:3px solid var(--grn);font-size:12px;line-height:1.6;">${p.notes}</div>` : ''}
-    <div style="border-bottom:1px solid var(--bdr);margin-bottom:20px;display:flex;gap:0;">
-      <button id="tab-appts" onclick="switchPatientTab('appts')" style="background:none;border:none;border-bottom:2px solid var(--grn);padding:8px 20px 10px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt);cursor:pointer;font-family:inherit;margin-bottom:-1px;">Appointments (${appts.length})</button>
-      <button id="tab-readings" onclick="switchPatientTab('readings')" style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 20px 10px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt-muted);cursor:pointer;font-family:inherit;margin-bottom:-1px;">Readings (${subs.length})</button>
+    <div style="border-bottom:1px solid var(--bdr);margin-bottom:20px;display:flex;gap:0;flex-wrap:wrap;">
+      <button id="tab-appts"     onclick="switchPatientTab('appts')"     style="background:none;border:none;border-bottom:2px solid var(--grn);padding:8px 16px 10px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--br);cursor:pointer;font-family:inherit;margin-bottom:-1px;">Appointments (${appts.length})</button>
+      <button id="tab-readings"  onclick="switchPatientTab('readings')"  style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 16px 10px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--brl);cursor:pointer;font-family:inherit;margin-bottom:-1px;">Readings (${subs.length})</button>
+      <button id="tab-notes"     onclick="switchPatientTab('notes')"     style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 16px 10px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--brl);cursor:pointer;font-family:inherit;margin-bottom:-1px;">Notes</button>
+      <button id="tab-treatment" onclick="switchPatientTab('treatment')" style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 16px 10px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--brl);cursor:pointer;font-family:inherit;margin-bottom:-1px;">Treatment Zones</button>
     </div>
     <div id="tab-panel-appts">${apptHtml}</div>
     <div id="tab-panel-readings" style="display:none;">${subHtml}</div>
+    <div id="tab-panel-notes" style="display:none;"><div class="loading-text">Loading notes…</div></div>
+    <div id="tab-panel-treatment" style="display:none;"><div class="loading-text">Loading zones…</div></div>
   `;
+  // Load notes + zones immediately so they're ready
+  loadPatientNotes(p.id);
+  loadPatientZones(p.id);
 }
 
 function switchPatientTab(tab) {
-  const tabs   = ['appts','readings'];
+  const tabs = ['appts','readings','notes','treatment'];
   tabs.forEach(t => {
     const btn   = document.getElementById('tab-' + t);
     const panel = document.getElementById('tab-panel-' + t);
     if (!btn || !panel) return;
     const active = t === tab;
     btn.style.borderBottomColor = active ? 'var(--grn)' : 'transparent';
-    btn.style.color = active ? 'var(--txt)' : 'var(--txt-muted)';
+    btn.style.color = active ? 'var(--br)' : 'var(--brl)';
     panel.style.display = active ? '' : 'none';
   });
+}
+
+// ── Patient Notes tab ───────────────────────────────────────
+async function loadPatientNotes(patientId) {
+  const panel = document.getElementById('tab-panel-notes');
+  if (!panel) return;
+  try {
+    const notes = await api('GET', `/api/v2/patients/${patientId}/notes`);
+    renderPatientNotes(patientId, notes);
+  } catch(e) {
+    panel.innerHTML = `<div class="text-muted">Could not load notes.</div>`;
+  }
+}
+
+function renderPatientNotes(patientId, notes) {
+  const panel = document.getElementById('tab-panel-notes');
+  if (!panel) return;
+  const today = new Date().toISOString().split('T')[0];
+  const list = notes.map(n => `
+    <div class="history-item" id="pnote-${n.id}" style="position:relative;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:10px;color:var(--brl);letter-spacing:0.06em;">${fmtDate(n.note_date)}</span>
+        <button onclick="deletePatientNote(${n.id},${patientId})" style="background:none;border:none;font-size:10px;color:var(--red);cursor:pointer;padding:2px 6px;letter-spacing:0.06em;">✕ Remove</button>
+      </div>
+      <textarea onblur="savePatientNoteEdit(${n.id},this,${patientId})"
+        style="width:100%;font-family:var(--font);font-size:13px;line-height:1.7;border:none;background:transparent;resize:vertical;color:var(--br);outline:none;min-height:60px;"
+        >${n.content}</textarea>
+    </div>
+  `).join('');
+
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+      <button class="btn btn-primary btn-sm" onclick="addPatientNote(${patientId},'${today}')">+ Add Note</button>
+    </div>
+    ${list || '<div class="text-muted">No notes yet. Add one above.</div>'}
+  `;
+}
+
+async function addPatientNote(patientId, noteDate) {
+  try {
+    await api('POST', `/api/v2/patients/${patientId}/notes`, { note_date: noteDate, content: '' });
+    loadPatientNotes(patientId);
+  } catch(e) { toast(e.message, true); }
+}
+
+async function savePatientNoteEdit(noteId, textarea, patientId) {
+  try {
+    await api('PUT', `/api/v2/patient-notes/${noteId}`, { content: textarea.value });
+    toast('Note saved');
+  } catch(e) { toast('Save failed', true); }
+}
+
+async function deletePatientNote(noteId, patientId) {
+  if (!await showConfirm('Delete this note?')) return;
+  try {
+    await api('DELETE', `/api/v2/patient-notes/${noteId}`);
+    loadPatientNotes(patientId);
+  } catch(e) { toast(e.message, true); }
+}
+
+// ── Treatment Zones tab ─────────────────────────────────────
+// Three top-level categories
+const ZONE_CATEGORIES = [
+  {
+    key: 'branches',
+    label: 'Branches',
+    description: 'Arms & Legs',
+    limbGroups: [
+      { label: 'Arm', zones: ['Inside Upper Arm','Outside Upper Arm','Inside Cubital Crease','Outside Cubital Crease','Inside Forearm','Outside Forearm'] },
+      { label: 'Leg', zones: ['Inside Thigh','Outside Thigh','Inside Popliteal Crease','Outside Popliteal Crease','Inside Shin','Outside Shin'] },
+    ],
+  },
+  {
+    key: 'vessels',
+    label: 'Vessel Groups',
+    description: 'Extraordinary Vessels & Elements',
+    groups: [
+      { label: 'Ren Mai',   zones: ['Upper Upper Ren Mai','Lower Upper Ren Mai','Upper Lower Ren Mai','Lower Lower Ren Mai'] },
+      { label: 'Chong Mai', zones: ['Upper Right Chong Mai','Upper Left Chong Mai','Lower Right Chong Mai','Lower Left Chong Mai'] },
+      { label: 'Dai Mai',   zones: ['Upper Right Dai Mai','Upper Left Dai Mai','Lower Right Dai Mai','Lower Left Dai Mai'] },
+      { label: 'Qiao Mai',  zones: ['Left Yin Qiao Mai','Right Yin Qiao Mai','Left Yang Qiao Mai','Right Yang Qiao Mai'] },
+      { label: 'Elements',  zones: ['Fire Element','Earth Element','Water Element','Wood Element','Metal Element','Ether'] },
+    ],
+  },
+  {
+    key: 'obstacles',
+    label: 'Obstacles',
+    description: 'Blockages & Other Points',
+    groups: [
+      { label: 'Blood',         zones: ['Blood Block'] },
+      { label: 'Special',       zones: ['Heavenquake'] },
+      { label: 'Outer Wall',    zones: ['Left Outer Wall','Right Outer Wall'] },
+      { label: 'Reproductive',  zones: ['Left Ovary','Right Ovary','Left Testicle','Right Testicle'] },
+    ],
+  },
+];
+
+let selectedZones = new Set();
+let zonesPatientId = null;
+
+async function loadPatientZones(patientId) {
+  zonesPatientId = patientId;
+  selectedZones = new Set();
+  const panel = document.getElementById('tab-panel-treatment');
+  if (!panel) return;
+  try {
+    const records = await api('GET', `/api/v2/patients/${patientId}/zones`);
+    renderZoneSelector(patientId, records);
+  } catch(e) {
+    panel.innerHTML = `<div class="text-muted">Could not load zone records.</div>`;
+  }
+}
+
+function renderZoneSelector(patientId, records) {
+  const panel = document.getElementById('tab-panel-treatment');
+  if (!panel) return;
+  const today = new Date().toISOString().split('T')[0];
+
+  // Single limb schematic (side = 'Left' | 'Right', limbGroup from ZONE_CATEGORIES)
+  const limbSvg = (side, limbGroup) => `
+    <div style="flex:1;min-width:140px;">
+      <div style="font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--brl);text-align:center;margin-bottom:8px;">${side}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;border-radius:8px;overflow:hidden;border:1px solid var(--bdr);">
+        ${buildLimbGrid(side, limbGroup.zones)}
+      </div>
+    </div>`;
+
+  // Chip buttons for a named sub-group
+  const chipGroup = (group) => `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--brl);margin-bottom:6px;">${group.label}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        ${group.zones.map(z => `
+          <button id="zone-btn-${zoneId(z)}" onclick="toggleZone('${z}')"
+            style="font-family:var(--font);font-size:9px;padding:5px 10px;border-radius:12px;border:1px solid var(--bdr);background:var(--cra);color:var(--br);cursor:pointer;transition:all 0.12s;letter-spacing:0.04em;">
+            ${z}
+          </button>
+        `).join('')}
+      </div>
+    </div>`;
+
+  // Zone history
+  const histHtml = records.length ? records.map(r => `
+    <div class="history-item" style="margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:10px;color:var(--brl);">${fmtDate(r.record_date)}</span>
+        <button onclick="deleteZoneRecord(${r.id},${patientId})" style="background:none;border:none;font-size:10px;color:var(--red);cursor:pointer;padding:2px 6px;">✕</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        ${(r.zones||[]).map(z => `<span style="font-size:9px;background:var(--cra);border:1px solid var(--bdr);padding:3px 8px;border-radius:12px;color:var(--br);">${z}</span>`).join('')}
+      </div>
+      ${r.notes ? `<div style="font-size:11px;color:var(--brl);margin-top:6px;font-style:italic;">${r.notes}</div>` : ''}
+    </div>
+  `).join('') : '<div class="text-muted" style="margin-bottom:16px;">No zone records yet.</div>';
+
+  panel.innerHTML = `
+    <div style="margin-bottom:20px;">
+      <div style="font-size:8px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--grn);margin-bottom:16px;padding-bottom:6px;border-bottom:1px solid var(--bdr);">Select Treatment Zones</div>
+
+      ${ZONE_CATEGORIES.map(cat => `
+        <div style="margin-bottom:20px;">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--grn2);margin-bottom:2px;">${cat.label}</div>
+          <div style="font-size:10px;color:var(--brl);margin-bottom:10px;font-style:italic;">${cat.description}</div>
+
+          ${cat.key === 'branches'
+            ? cat.limbGroups.map(lg => `
+                <div style="margin-bottom:14px;">
+                  <div style="font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--brl);margin-bottom:8px;">${lg.label}s</div>
+                  <div style="display:flex;gap:12px;">${limbSvg('Left', lg)}${limbSvg('Right', lg)}</div>
+                </div>
+              `).join('')
+            : cat.groups.map(g => chipGroup(g)).join('')
+          }
+        </div>
+      `).join('')}
+
+      <!-- Selected summary + save -->
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--bdr);">
+        <div style="font-size:8px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--grn);margin-bottom:8px;">Selected Zones</div>
+        <div id="zone-selection-display" style="display:flex;flex-wrap:wrap;gap:4px;min-height:28px;margin-bottom:10px;">
+          <span style="font-size:11px;color:var(--brl);font-style:italic;">None selected</span>
+        </div>
+        <textarea id="zone-session-notes" placeholder="Session notes (optional)…"
+          style="width:100%;font-family:var(--font);font-size:12px;padding:8px 10px;border:1px solid var(--bdr);border-radius:2px;background:var(--cra);color:var(--br);resize:vertical;min-height:56px;outline:none;margin-bottom:8px;"></textarea>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="saveZoneRecord(${patientId},'${today}')">Save Record</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearZoneSelection()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div>
+      <div style="font-size:8px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--grn);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--bdr);">Zone Record History</div>
+      ${histHtml}
+    </div>
+  `;
+}
+
+function buildLimbGrid(side, zones) {
+  // zones is a flat array of paired [inside, outside, inside, outside, …]
+  const rows = [];
+  for (let i = 0; i < zones.length; i += 2) rows.push([zones[i], zones[i + 1]]);
+  return rows.map(([inner, outer], i) => {
+    const innerFull = `${side} ${inner}`;
+    const outerFull = `${side} ${outer}`;
+    const bg = i % 2 === 0 ? 'var(--cr)' : 'var(--cra)';
+    // Strip trailing limb-type word so labels stay compact in the grid cell
+    const short = s => s.replace(/ (Upper |Lower )?(Arm|Leg|Crease)$/, '').trim();
+    return `
+      <button id="zone-btn-${zoneId(innerFull)}" onclick="toggleZone('${innerFull}')"
+        style="font-family:var(--font);font-size:8px;padding:8px 4px;background:${bg};border:none;cursor:pointer;color:var(--brl);letter-spacing:0.04em;line-height:1.3;transition:all 0.12s;">
+        ${short(inner)}
+      </button>
+      <button id="zone-btn-${zoneId(outerFull)}" onclick="toggleZone('${outerFull}')"
+        style="font-family:var(--font);font-size:8px;padding:8px 4px;background:${bg};border:none;cursor:pointer;color:var(--brl);letter-spacing:0.04em;line-height:1.3;transition:all 0.12s;">
+        ${short(outer)}
+      </button>`;
+  }).join('');
+}
+
+function zoneId(zone) { return zone.toLowerCase().replace(/[^a-z0-9]/g, '-'); }
+
+function toggleZone(zone) {
+  const btn = document.getElementById('zone-btn-' + zoneId(zone));
+  if (selectedZones.has(zone)) {
+    selectedZones.delete(zone);
+    if (btn) { btn.style.background = ''; btn.style.color = 'var(--brl)'; btn.style.borderColor = 'var(--bdr)'; btn.style.fontWeight = ''; }
+  } else {
+    selectedZones.add(zone);
+    if (btn) { btn.style.background = 'var(--grn)'; btn.style.color = '#FAF3E4'; btn.style.borderColor = 'var(--grn)'; btn.style.fontWeight = '700'; }
+  }
+  updateZoneDisplay();
+}
+
+function updateZoneDisplay() {
+  const el = document.getElementById('zone-selection-display');
+  if (!el) return;
+  if (selectedZones.size === 0) {
+    el.innerHTML = '<span style="font-size:11px;color:var(--brl);font-style:italic;">None selected</span>';
+  } else {
+    el.innerHTML = [...selectedZones].map(z =>
+      `<span style="font-size:9px;background:var(--grn);color:#FAF3E4;padding:3px 10px;border-radius:12px;font-weight:600;">${z}</span>`
+    ).join('');
+  }
+}
+
+function clearZoneSelection() {
+  selectedZones.forEach(z => {
+    const btn = document.getElementById('zone-btn-' + zoneId(z));
+    if (btn) { btn.style.background = ''; btn.style.color = 'var(--brl)'; btn.style.borderColor = 'var(--bdr)'; btn.style.fontWeight = ''; }
+  });
+  selectedZones.clear();
+  updateZoneDisplay();
+  const notesEl = document.getElementById('zone-session-notes');
+  if (notesEl) notesEl.value = '';
+}
+
+async function saveZoneRecord(patientId, recordDate) {
+  if (selectedZones.size === 0) { toast('Select at least one zone first', true); return; }
+  const notes = document.getElementById('zone-session-notes')?.value || '';
+  try {
+    await api('POST', `/api/v2/patients/${patientId}/zones`, {
+      record_date: recordDate,
+      zones: [...selectedZones],
+      notes,
+    });
+    toast('Zone record saved');
+    clearZoneSelection();
+    loadPatientZones(patientId);
+  } catch(e) { toast(e.message, true); }
+}
+
+async function deleteZoneRecord(recordId, patientId) {
+  if (!await showConfirm('Delete this zone record?')) return;
+  try {
+    await api('DELETE', `/api/v2/treatment-zones/${recordId}`);
+    loadPatientZones(patientId);
+  } catch(e) { toast(e.message, true); }
 }
 
 // ══════════════════════════════════════════════════
