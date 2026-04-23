@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 CALENDAR_ID  = os.environ.get("GOOGLE_CALENDAR_ID", "acu@ednicholls.com")
 CLINIC_ID_RE = re.compile(r'\[clinic-id:(\d+)\]')
-BASE_URL     = "https://web-production-1a470.up.railway.app"
+BASE_URL     = os.environ.get("RAILWAY_PUBLIC_DOMAIN_URL", "https://ednichollsconsole.up.railway.app")
 DASHBOARD_TOKEN = os.environ.get("DASHBOARD_TOKEN", "earseed2026")
 
 # ── Google auth ────────────────────────────────────────────────────────────────
