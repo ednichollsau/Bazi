@@ -968,7 +968,9 @@ def create_patient_note(patient_id: int, note_date: str, content: str) -> dict |
                     VALUES (%s, %s, %s)
                     RETURNING *
                 """, (patient_id, note_date, content))
-                return dict(cur.fetchone())
+                row = cur.fetchone()
+            conn.commit()
+            return dict(row)
     except Exception as e:
         logger.error("create_patient_note error: %s", e)
         return None
@@ -1000,6 +1002,7 @@ def update_patient_note(note_id: int, content: str) -> bool:
                 cur.execute("""
                     UPDATE patient_notes SET content = %s WHERE id = %s
                 """, (content, note_id))
+            conn.commit()
             return True
     except Exception as e:
         logger.error("update_patient_note error: %s", e)
@@ -1013,6 +1016,7 @@ def delete_patient_note(note_id: int) -> bool:
         with get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM patient_notes WHERE id = %s", (note_id,))
+            conn.commit()
             return True
     except Exception as e:
         logger.error("delete_patient_note error: %s", e)
