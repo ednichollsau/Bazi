@@ -726,6 +726,83 @@
     .info-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; font-size: 12px; }
     .info-label { font-size: 8px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brl); width: 80px; flex-shrink: 0; }
 
+    /* ── Login screen ───────────────────────────────────── */
+    #login-screen {
+      display: none;
+      position: fixed; inset: 0;
+      background: var(--cr);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    #login-screen.open { display: flex; }
+    .login-box {
+      width: 100%; max-width: 380px;
+      padding: 48px 40px;
+      background: var(--cr);
+      border: 1px solid var(--bdr);
+      border-radius: 2px;
+      text-align: center;
+    }
+    .login-logo { width: 56px; height: 56px; margin: 0 auto 20px; }
+    .login-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.24em;
+      text-transform: uppercase; color: var(--grn); margin-bottom: 4px;
+    }
+    .login-sub { font-size: 11px; color: var(--brl); margin-bottom: 32px; }
+    .login-error {
+      font-size: 11px; color: var(--red); margin-bottom: 12px;
+      min-height: 16px;
+    }
+    .login-input {
+      width: 100%; font-family: var(--font); font-size: 13px;
+      padding: 10px 14px; border: 1px solid var(--bdr); border-radius: 2px;
+      background: var(--cra); color: var(--br); outline: none;
+      margin-bottom: 10px; display: block;
+    }
+    .login-input:focus { border-color: var(--grn); }
+    .login-btn {
+      width: 100%; font-family: var(--font); font-size: 9px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      padding: 12px; border-radius: 24px; border: none;
+      background: var(--grn); color: #FAF3E4; cursor: pointer;
+      transition: background 0.15s; margin-top: 4px;
+    }
+    .login-btn:hover { background: var(--grn2); }
+    .login-btn:disabled { opacity: 0.6; cursor: default; }
+
+    /* ── Offline banner ──────────────────────────────────── */
+    #offline-banner {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0;
+      background: var(--gold); color: var(--br);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; text-align: center;
+      padding: 7px 16px; z-index: 4000;
+    }
+    #offline-banner.show { display: block; }
+
+    /* ── Confirm dialog ──────────────────────────────────── */
+    #modal-confirm .modal { max-width: 360px; }
+    .confirm-message { font-size: 14px; line-height: 1.6; color: var(--br); }
+
+    /* ── Auto-save indicator ─────────────────────────────── */
+    #note-save-status {
+      font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--brl); min-width: 60px; text-align: right;
+    }
+
+    /* ── Logout button ───────────────────────────────────── */
+    .sidebar-logout {
+      width: 100%; font-family: var(--font); font-size: 8px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(255,255,255,0.35); background: none; border: none;
+      cursor: pointer; padding: 10px 20px; text-align: left;
+      transition: color 0.15s;
+    }
+    .sidebar-logout:hover { color: rgba(255,255,255,0.7); }
+
     /* ── Mobile nav bar ─────────────────────────────────── */
     #mobile-nav { display: none; }
     .mob-back-btn { display: none; }
@@ -872,6 +949,42 @@
   </style>
 </head>
 <body>
+
+<!-- ── Offline banner ──────────────────────────────────── -->
+<div id="offline-banner">⚡ No internet connection — working offline</div>
+
+<!-- ── Login screen ────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-box">
+    <img id="login-logo" src="/icon-192.png" class="login-logo" alt="">
+    <div class="login-title">Ed Nicholls Acupuncture</div>
+    <div class="login-sub">Practitioner Dashboard</div>
+    <div class="login-error" id="login-error"></div>
+    <form onsubmit="doLogin(event)">
+      <input class="login-input" type="email" id="login-email" placeholder="Email address" autocomplete="email" required>
+      <input class="login-input" type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
+      <button class="login-btn" type="submit" id="login-btn">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Confirm dialog ───────────────────────────────────── -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-header">
+      <span class="modal-title">Confirm</span>
+      <button class="modal-close" onclick="confirmCancel()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-message" id="confirm-message"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="confirmCancel()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmOk()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <div id="app">
 
   <!-- ── Sidebar ─────────────────────────────────────── -->
@@ -905,6 +1018,7 @@
         Settings
       </div>
     </nav>
+    <button class="sidebar-logout" onclick="logout()">⎋ Sign Out</button>
     <div class="sidebar-footer">Ed Nicholls Acupuncture</div>
   </div>
 
@@ -1205,25 +1319,26 @@
   <div class="modal" style="width:620px;">
     <div class="modal-header">
       <span class="modal-title" id="note-modal-title">Treatment Note</span>
+      <span id="note-save-status"></span>
       <button class="modal-close" onclick="closeModal('modal-note')">×</button>
     </div>
     <div class="modal-body">
       <div class="soap-grid">
         <div class="soap-field">
           <label>Subjective</label>
-          <textarea id="note-subjective" placeholder="Patient's reported symptoms, complaints, history..."></textarea>
+          <textarea id="note-subjective" oninput="scheduleAutoSave()" placeholder="Patient's reported symptoms, complaints, history..."></textarea>
         </div>
         <div class="soap-field">
           <label>Objective</label>
-          <textarea id="note-objective" placeholder="Observations, pulse, tongue, palpation findings..."></textarea>
+          <textarea id="note-objective" oninput="scheduleAutoSave()" placeholder="Observations, pulse, tongue, palpation findings..."></textarea>
         </div>
         <div class="soap-field">
           <label>Assessment</label>
-          <textarea id="note-assessment" placeholder="Diagnosis, pattern, elemental analysis..."></textarea>
+          <textarea id="note-assessment" oninput="scheduleAutoSave()" placeholder="Diagnosis, pattern, elemental analysis..."></textarea>
         </div>
         <div class="soap-field">
           <label>Plan</label>
-          <textarea id="note-plan" placeholder="Points used, ear seeds, treatment strategy, next steps..."></textarea>
+          <textarea id="note-plan" oninput="scheduleAutoSave()" placeholder="Points used, ear seeds, treatment strategy, next steps..."></textarea>
         </div>
       </div>
     </div>
@@ -1269,19 +1384,34 @@
 
 <script>
 // ── Config ─────────────────────────────────────────────────
-const TOKEN = '__TOKEN__';
-const API   = '';  // same origin
+const SERVER_TOKEN = '__TOKEN__'; // injected by server
+const API = '';
+
+// Resolve session token: localStorage → URL param → server-injected
+(function resolveToken() {
+  const urlToken = new URLSearchParams(window.location.search).get('token');
+  if (urlToken) {
+    localStorage.setItem('ena_token', urlToken);
+    history.replaceState({}, '', '/dashboard'); // clean URL
+  }
+  if (!localStorage.getItem('ena_token') && SERVER_TOKEN && SERVER_TOKEN !== '__TOKEN__') {
+    localStorage.setItem('ena_token', SERVER_TOKEN);
+  }
+})();
+
+function getToken() { return localStorage.getItem('ena_token') || ''; }
 
 // ── State ──────────────────────────────────────────────────
-let allPatients     = [];
-let allApptTypes    = [];
+let allPatients      = [];
+let allApptTypes     = [];
 let currentWeekStart = null;
 let weekAppointments = [];
-let activeNoteApptId = null;
+let activeNoteApptId    = null;
 let activeNotePatientId = null;
+let noteAutoSaveTimer   = null;
 
 // ── Helpers ────────────────────────────────────────────────
-function qs(url) { return `${url}?token=${TOKEN}`; }
+function qs(url) { return `${url}?token=${getToken()}`; }
 
 async function api(method, path, body) {
   const opts = { method };
@@ -1290,12 +1420,36 @@ async function api(method, path, body) {
     opts.body = JSON.stringify(body);
   }
   const sep = path.includes('?') ? '&' : '?';
-  const res = await fetch(`${API}${path}${sep}token=${TOKEN}`, opts);
+  const res = await fetch(`${API}${path}${sep}token=${getToken()}`, opts);
+  if (res.status === 401 || res.status === 403) {
+    // Token invalid — force re-login
+    localStorage.removeItem('ena_token');
+    showLoginScreen('Session expired. Please log in again.');
+    throw new Error('Unauthorised');
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+// ── Custom confirm dialog ───────────────────────────────────
+let _confirmResolve = null;
+function showConfirm(message) {
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    document.getElementById('confirm-message').textContent = message;
+    document.getElementById('modal-confirm').classList.add('open');
+  });
+}
+function confirmOk()     { document.getElementById('modal-confirm').classList.remove('open'); _confirmResolve && _confirmResolve(true);  }
+function confirmCancel() { document.getElementById('modal-confirm').classList.remove('open'); _confirmResolve && _confirmResolve(false); }
+
+// ── Logout ──────────────────────────────────────────────────
+function logout() {
+  localStorage.removeItem('ena_token');
+  showLoginScreen();
 }
 
 function toast(msg, isError = false) {
@@ -1992,7 +2146,7 @@ async function loadBlockedTimes() {
 }
 
 async function deleteBlock(id) {
-  if (!confirm('Remove this blocked time?')) return;
+  if (!await showConfirm('Remove this blocked time?')) return;
   try {
     await api('DELETE', `/api/blocked-times/${id}`);
     toast('Removed');
@@ -2199,10 +2353,118 @@ async function submitNote() {
 // ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════════
+function showLoginScreen(errorMsg) {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('mobile-nav').style.display = 'none';
+  const screen = document.getElementById('login-screen');
+  screen.classList.add('open');
+  if (errorMsg) document.getElementById('login-error').textContent = errorMsg;
+  // Inject logo if available
+  const logo = document.getElementById('login-logo');
+  const sidebarLogo = document.querySelector('.brand-logo');
+  if (sidebarLogo && sidebarLogo.src) logo.src = sidebarLogo.src;
+}
+
+function hideLoginScreen() {
+  document.getElementById('login-screen').classList.remove('open');
+  document.getElementById('app').style.display = '';
+}
+
+async function doLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email:    document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value,
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Login failed');
+    }
+    const data = await res.json();
+    localStorage.setItem('ena_token', data.token);
+    hideLoginScreen();
+    loadDashboard();
+  } catch(err) {
+    errEl.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+}
+
+// ══════════════════════════════════════════════════
+// OFFLINE DETECTION
+// ══════════════════════════════════════════════════
+function updateOnlineStatus() {
+  const banner = document.getElementById('offline-banner');
+  if (navigator.onLine) {
+    banner.classList.remove('show');
+  } else {
+    banner.classList.add('show');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// AUTO-SAVE NOTES
+// ══════════════════════════════════════════════════
+function scheduleAutoSave() {
+  const status = document.getElementById('note-save-status');
+  status.textContent = 'Unsaved…';
+  clearTimeout(noteAutoSaveTimer);
+  noteAutoSaveTimer = setTimeout(autoSaveNote, 2000);
+}
+
+async function autoSaveNote() {
+  if (!activeNoteApptId) return;
+  const status = document.getElementById('note-save-status');
+  status.textContent = 'Saving…';
+  try {
+    await api('POST', '/api/treatment-notes', {
+      appointment_id: activeNoteApptId,
+      patient_id:     activeNotePatientId,
+      subjective:     document.getElementById('note-subjective').value,
+      objective:      document.getElementById('note-objective').value,
+      assessment:     document.getElementById('note-assessment').value,
+      plan:           document.getElementById('note-plan').value,
+    });
+    status.textContent = 'Saved ✓';
+    setTimeout(() => { if (status.textContent === 'Saved ✓') status.textContent = ''; }, 2000);
+  } catch(e) {
+    status.textContent = 'Save failed';
+  }
+}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+  // Offline detection
+  window.addEventListener('online',  updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
+
+  // Check for valid session token, show login if missing
+  if (!getToken()) {
+    showLoginScreen();
+    return;
+  }
+
   loadDashboard();
-  // Close modals on overlay click
+
+  // Close modals on overlay click (but not the confirm dialog — use its own buttons)
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    if (overlay.id === 'modal-confirm') return;
     overlay.addEventListener('click', e => {
       if (e.target === overlay) overlay.classList.remove('open');
     });
