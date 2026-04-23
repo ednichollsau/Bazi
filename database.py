@@ -172,6 +172,27 @@ def init_db():
             ADD COLUMN IF NOT EXISTS patient_id INTEGER REFERENCES patients(id)
         """)
 
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS patient_notes (
+                id          SERIAL PRIMARY KEY,
+                patient_id  INTEGER NOT NULL REFERENCES patients(id),
+                note_date   DATE NOT NULL DEFAULT CURRENT_DATE,
+                content     TEXT NOT NULL DEFAULT '',
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        _run(conn, """
+            CREATE TABLE IF NOT EXISTS treatment_zone_records (
+                id          SERIAL PRIMARY KEY,
+                patient_id  INTEGER NOT NULL REFERENCES patients(id),
+                record_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                zones       JSONB NOT NULL DEFAULT '[]',
+                notes       TEXT NOT NULL DEFAULT '',
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
         conn.close()
         logger.info("Database initialised.")
     except Exception as e:
@@ -929,4 +950,125 @@ def submission_exists(email: str, year: int, month: int, day: int) -> bool:
                 return cur.fetchone() is not None
     except Exception as e:
         logger.error("submission_exists error: %s", e)
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PATIENT NOTES
+# ══════════════════════════════════════════════════════════════════════════════
+
+def create_patient_note(patient_id: int, note_date: str, content: str) -> dict | None:
+    if not DATABASE_URL:
+        return None
+    try:
+        with get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO patient_notes (patient_id, note_date, content)
+                    VALUES (%s, %s, %s)
+                    RETURNING *
+                """, (patient_id, note_date, content))
+                return dict(cur.fetchone())
+    except Exception as e:
+        logger.error("create_patient_note error: %s", e)
+        return None
+
+
+def list_patient_notes(patient_id: int) -> list:
+    if not DATABASE_URL:
+        return []
+    try:
+        with get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT * FROM patient_notes
+                    WHERE patient_id = %s
+                    ORDER BY note_date DESC, created_at DESC
+                """, (patient_id,))
+                return [dict(r) for r in cur.fetchall()]
+    except Exception as e:
+        logger.error("list_patient_notes error: %s", e)
+        return []
+
+
+def update_patient_note(note_id: int, content: str) -> bool:
+    if not DATABASE_URL:
+        return False
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE patient_notes SET content = %s WHERE id = %s
+                """, (content, note_id))
+            return True
+    except Exception as e:
+        logger.error("update_patient_note error: %s", e)
+        return False
+
+
+def delete_patient_note(note_id: int) -> bool:
+    if not DATABASE_URL:
+        return False
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM patient_notes WHERE id = %s", (note_id,))
+            return True
+    except Exception as e:
+        logger.error("delete_patient_note error: %s", e)
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TREATMENT ZONE RECORDS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def save_treatment_zones(patient_id: int, record_date: str, zones: list, notes: str = "") -> dict | None:
+    if not DATABASE_URL:
+        return None
+    try:
+        with get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO treatment_zone_records (patient_id, record_date, zones, notes)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING *
+                """, (patient_id, record_date, json.dumps(zones), notes))
+                return dict(cur.fetchone())
+    except Exception as e:
+        logger.error("save_treatment_zones error: %s", e)
+        return None
+
+
+def list_treatment_zones(patient_id: int) -> list:
+    if not DATABASE_URL:
+        return []
+    try:
+        with get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT * FROM treatment_zone_records
+                    WHERE patient_id = %s
+                    ORDER BY record_date DESC, created_at DESC
+                """, (patient_id,))
+                rows = [dict(r) for r in cur.fetchall()]
+                for r in rows:
+                    if isinstance(r.get('zones'), str):
+                        r['zones'] = json.loads(r['zones'])
+                return rows
+    except Exception as e:
+        logger.error("list_treatment_zones error: %s", e)
+        return []
+
+
+def delete_treatment_zone_record(record_id: int) -> bool:
+    if not DATABASE_URL:
+        return False
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM treatment_zone_records WHERE id = %s", (record_id,))
+            return True
+    except Exception as e:
+        logger.error("delete_treatment_zone_record error: %s", e)
         return False
