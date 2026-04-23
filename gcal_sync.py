@@ -265,14 +265,118 @@ def run_sync():
             except Exception as e:
                 logger.error("GCal sync: failed to reschedule clinic-id:%d — %s", cid, e)
 
-    # Detect GCal deletions: active clinic appts that SHOULD have a GCal event but don't
-    # (i.e. previously created — we know this because any active future appt should be in gcal_map
-    #  after at least one sync pass. We only act if the appt is in the future.)
-    for appt in active_appts:
-        cid = appt["id"]
-        if cid not in gcal_map:
-            # Could be brand new (just created above) — don't cancel it.
-            # We skip this case; new events are caught in step 3 and created.
-            pass
+    # ── 5. GCal → Clinic: import manually-added events ───────────────────────
+    # Any future GCal event WITHOUT a [clinic-id:] tag was added manually by Ed.
+    # Import it as a clinic appointment (find-or-create patient by name).
+
+    # Fetch the default appointment type ID (use first available)
+    default_type_id = None
+    try:
+        r = httpx.get(
+            f"{BASE_URL}/api/appointment-types",
+            params={"token": DASHBOARD_TOKEN},
+            timeout=10,
+        )
+        types = r.json()
+        if types:
+            default_type_id = types[0]["id"]
+    except Exception as e:
+        logger.warning("GCal sync: could not fetch appointment types — %s", e)
+
+    # Fetch existing patients for name-matching
+    patients_by_name: dict[str, int] = {}
+    try:
+        r = httpx.get(
+            f"{BASE_URL}/api/v2/patients",
+            params={"token": DASHBOARD_TOKEN},
+            timeout=10,
+        )
+        for p in r.json():
+            name = (p.get("name") or "").strip().lower()
+            if name:
+                patients_by_name[name] = p["id"]
+    except Exception as e:
+        logger.warning("GCal sync: could not fetch patients — %s", e)
+
+    for ev in gcal_events:
+        # Skip already-tagged events
+        if _parse_clinic_id(ev.get("description", "")) is not None:
+            continue
+
+        # Skip all-day events (they have "date" not "dateTime")
+        ev_start = ev.get("start", {})
+        if "date" in ev_start and "dateTime" not in ev_start:
+            continue
+
+        # Skip events in the past
+        start_val = _gcal_dt_value(ev_start) or ""
+        if start_val < now_str:
+            continue
+
+        summary = ev.get("summary", "").strip()
+        if not summary:
+            continue
+
+        # Find or create patient
+        name_key = summary.lower()
+        patient_id = patients_by_name.get(name_key)
+        if not patient_id:
+            try:
+                r = httpx.post(
+                    f"{BASE_URL}/api/v2/patients",
+                    params={"token": DASHBOARD_TOKEN},
+                    json={"name": summary},
+                    timeout=10,
+                )
+                r.raise_for_status()
+                patient_id = r.json()["id"]
+                patients_by_name[name_key] = patient_id
+                logger.info("GCal sync: created patient '%s' (id %d) from GCal event", summary, patient_id)
+            except Exception as e:
+                logger.error("GCal sync: could not create patient '%s' — %s", summary, e)
+                continue
+
+        if not default_type_id:
+            logger.warning("GCal sync: no appointment types available, skipping import of '%s'", summary)
+            continue
+
+        # Build start/end
+        start_dt = (start_val or "") + ":00"
+        end_val   = _gcal_dt_value(ev.get("end", {})) or ""
+        end_dt    = (end_val + ":00") if end_val else _add_hour(start_dt)
+
+        # Create clinic appointment
+        try:
+            r = httpx.post(
+                f"{BASE_URL}/api/appointments",
+                params={"token": DASHBOARD_TOKEN},
+                json={
+                    "patient_id":          patient_id,
+                    "appointment_type_id": default_type_id,
+                    "start_dt":            start_dt,
+                    "end_dt":              end_dt,
+                    "status":              "confirmed",
+                    "notes":               f"Imported from Google Calendar: {summary}",
+                },
+                timeout=10,
+            )
+            r.raise_for_status()
+            new_appt_id = r.json()["id"]
+            logger.info("GCal sync: imported GCal event '%s' as clinic appt %d", summary, new_appt_id)
+        except Exception as e:
+            logger.error("GCal sync: could not create appointment for '%s' — %s", summary, e)
+            continue
+
+        # Tag the GCal event so it won't be re-imported
+        try:
+            existing_desc = ev.get("description") or ""
+            new_desc = existing_desc + f"\n[clinic-id:{new_appt_id}]" if existing_desc else f"[clinic-id:{new_appt_id}]"
+            service.events().patch(
+                calendarId=CALENDAR_ID,
+                eventId=ev["id"],
+                body={"description": new_desc},
+            ).execute()
+        except Exception as e:
+            logger.error("GCal sync: could not tag GCal event for clinic-id:%d — %s", new_appt_id, e)
 
     logger.info("GCal sync: complete.")
