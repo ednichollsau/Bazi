@@ -1391,9 +1391,11 @@ def api_documentation_queue(request: Request):
 class PatientNoteIn(BaseModel):
     note_date: str
     content: str
+    zones: list = []
 
 class PatientNoteUpdate(BaseModel):
     content: str
+    zones: list = None
 
 @app.get("/api/v2/patients/{patient_id}/notes")
 def api_list_patient_notes(patient_id: int, request: Request):
@@ -1405,7 +1407,7 @@ def api_list_patient_notes(patient_id: int, request: Request):
 def api_create_patient_note(patient_id: int, body: PatientNoteIn, request: Request):
     if not _check_token(request):
         raise HTTPException(status_code=403, detail="Invalid or missing token.")
-    note = create_patient_note(patient_id, body.note_date, body.content)
+    note = create_patient_note(patient_id, body.note_date, body.content, body.zones)
     if not note:
         raise HTTPException(status_code=500, detail="Could not save note.")
     return JSONResponse(note)
