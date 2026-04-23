@@ -68,10 +68,32 @@ def startup():
 # ── Auth helper ────────────────────────────────────────────
 
 DASHBOARD_TOKEN = os.environ.get("DASHBOARD_TOKEN", "")
+ADMIN_EMAIL     = os.environ.get("ADMIN_EMAIL", "acu@ednicholls.com")
+ADMIN_PASSWORD  = os.environ.get("ADMIN_PASSWORD", "")
 
 def _check_token(request: Request) -> bool:
+    # Accept token from URL param OR Authorization: Bearer header
     token = request.query_params.get("token", "")
+    if not token:
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:]
     return bool(DASHBOARD_TOKEN) and token == DASHBOARD_TOKEN
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/login")
+def auth_login(req: LoginRequest):
+    if not ADMIN_PASSWORD:
+        raise HTTPException(status_code=500, detail="ADMIN_PASSWORD env var not set on server.")
+    email_ok    = req.email.strip().lower() == ADMIN_EMAIL.lower()
+    password_ok = req.password == ADMIN_PASSWORD
+    if email_ok and password_ok:
+        return {"token": DASHBOARD_TOKEN}
+    raise HTTPException(status_code=401, detail="Invalid email or password.")
 
 
 # ── Lookup tables ──────────────────────────────────────────
