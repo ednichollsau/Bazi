@@ -1918,37 +1918,78 @@ async function loadPatientNotes(patientId) {
     const notes = await api('GET', `/api/v2/patients/${patientId}/notes`);
     renderPatientNotes(patientId, notes);
   } catch(e) {
-    panel.innerHTML = `<div class="text-muted">Could not load notes.</div>`;
+    panel.innerHTML = `
+      <div style="text-align:center;padding:32px 0;">
+        <div class="text-muted" style="margin-bottom:16px;">Could not load notes — check that the server is up to date.</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadPatientNotes(${patientId})">Retry</button>
+      </div>`;
   }
 }
 
 function renderPatientNotes(patientId, notes) {
   const panel = document.getElementById('tab-panel-notes');
   if (!panel) return;
-  const today = new Date().toISOString().split('T')[0];
   const list = notes.map(n => `
-    <div class="history-item" id="pnote-${n.id}" style="position:relative;">
+    <div class="history-item" id="pnote-${n.id}" style="position:relative;padding-bottom:4px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-size:10px;color:var(--brl);letter-spacing:0.06em;">${fmtDate(n.note_date)}</span>
-        <button onclick="deletePatientNote(${n.id},${patientId})" style="background:none;border:none;font-size:10px;color:var(--red);cursor:pointer;padding:2px 6px;letter-spacing:0.06em;">✕ Remove</button>
+        <span style="font-size:10px;font-weight:600;color:var(--brl);letter-spacing:0.08em;text-transform:uppercase;">${fmtDate(n.note_date)}</span>
+        <button onclick="deletePatientNote(${n.id},${patientId})" style="background:none;border:none;font-size:10px;color:var(--red);cursor:pointer;padding:2px 6px;letter-spacing:0.06em;">✕</button>
       </div>
       <textarea onblur="savePatientNoteEdit(${n.id},this,${patientId})"
-        style="width:100%;font-family:var(--font);font-size:13px;line-height:1.7;border:none;background:transparent;resize:vertical;color:var(--br);outline:none;min-height:60px;"
+        style="width:100%;font-family:var(--font);font-size:13px;line-height:1.8;border:none;background:transparent;resize:vertical;color:var(--br);outline:none;min-height:72px;padding:0;"
         >${n.content}</textarea>
     </div>
   `).join('');
 
   panel.innerHTML = `
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-      <button class="btn btn-primary btn-sm" onclick="addPatientNote(${patientId},'${today}')">+ Add Note</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewNoteForm(${patientId})">+ New Note</button>
     </div>
-    ${list || '<div class="text-muted">No notes yet. Add one above.</div>'}
+    <!-- Inline new-note form (hidden by default) -->
+    <div id="new-note-form-${patientId}" style="display:none;margin-bottom:20px;background:var(--cr);border:1px solid var(--bdr);border-radius:4px;padding:16px;">
+      <div style="font-size:8px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--grn);margin-bottom:12px;">New Note</div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--brl);display:block;margin-bottom:4px;">Date</label>
+        <input type="date" id="new-note-date-${patientId}" value="${new Date().toISOString().split('T')[0]}"
+          style="font-family:var(--font);font-size:13px;padding:7px 10px;border:1px solid var(--bdr);border-radius:2px;background:var(--cra);color:var(--br);width:180px;outline:none;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--brl);display:block;margin-bottom:4px;">Notes</label>
+        <textarea id="new-note-content-${patientId}" placeholder="Enter treatment notes…"
+          style="width:100%;font-family:var(--font);font-size:13px;line-height:1.8;padding:8px 10px;border:1px solid var(--bdr);border-radius:2px;background:var(--cra);color:var(--br);resize:vertical;min-height:100px;outline:none;"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="submitNewNote(${patientId})">Save Note</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeNewNoteForm(${patientId})">Cancel</button>
+      </div>
+    </div>
+    ${list || '<div class="text-muted" style="padding:16px 0;">No notes yet.</div>'}
   `;
 }
 
-async function addPatientNote(patientId, noteDate) {
+function openNewNoteForm(patientId) {
+  const form = document.getElementById(`new-note-form-${patientId}`);
+  if (form) {
+    form.style.display = '';
+    form.querySelector('textarea')?.focus();
+  }
+}
+
+function closeNewNoteForm(patientId) {
+  const form = document.getElementById(`new-note-form-${patientId}`);
+  if (form) form.style.display = 'none';
+}
+
+async function submitNewNote(patientId) {
+  const dateEl    = document.getElementById(`new-note-date-${patientId}`);
+  const contentEl = document.getElementById(`new-note-content-${patientId}`);
+  const content   = contentEl?.value?.trim();
+  if (!content) { toast('Please write something before saving.', true); return; }
   try {
-    await api('POST', `/api/v2/patients/${patientId}/notes`, { note_date: noteDate, content: '' });
+    await api('POST', `/api/v2/patients/${patientId}/notes`, {
+      note_date: dateEl?.value || new Date().toISOString().split('T')[0],
+      content,
+    });
     loadPatientNotes(patientId);
   } catch(e) { toast(e.message, true); }
 }
@@ -2041,7 +2082,7 @@ function renderZoneSelector(patientId, records) {
       <div style="font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--brl);margin-bottom:6px;">${group.label}</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;">
         ${group.zones.map(z => `
-          <button id="zone-btn-${zoneId(z)}" onclick="toggleZone('${z}')"
+          <button id="zone-btn-${zoneId(z)}" data-bg="var(--cra)" onclick="toggleZone('${z}')"
             style="font-family:var(--font);font-size:9px;padding:5px 10px;border-radius:12px;border:1px solid var(--bdr);background:var(--cra);color:var(--br);cursor:pointer;transition:all 0.12s;letter-spacing:0.04em;">
             ${z}
           </button>
@@ -2118,11 +2159,11 @@ function buildLimbGrid(side, zones) {
     // Strip trailing limb-type word so labels stay compact in the grid cell
     const short = s => s.replace(/ (Upper |Lower )?(Arm|Leg|Crease)$/, '').trim();
     return `
-      <button id="zone-btn-${zoneId(innerFull)}" onclick="toggleZone('${innerFull}')"
+      <button id="zone-btn-${zoneId(innerFull)}" data-bg="${bg}" onclick="toggleZone('${innerFull}')"
         style="font-family:var(--font);font-size:8px;padding:8px 4px;background:${bg};border:none;cursor:pointer;color:var(--brl);letter-spacing:0.04em;line-height:1.3;transition:all 0.12s;">
         ${short(inner)}
       </button>
-      <button id="zone-btn-${zoneId(outerFull)}" onclick="toggleZone('${outerFull}')"
+      <button id="zone-btn-${zoneId(outerFull)}" data-bg="${bg}" onclick="toggleZone('${outerFull}')"
         style="font-family:var(--font);font-size:8px;padding:8px 4px;background:${bg};border:none;cursor:pointer;color:var(--brl);letter-spacing:0.04em;line-height:1.3;transition:all 0.12s;">
         ${short(outer)}
       </button>`;
@@ -2135,10 +2176,20 @@ function toggleZone(zone) {
   const btn = document.getElementById('zone-btn-' + zoneId(zone));
   if (selectedZones.has(zone)) {
     selectedZones.delete(zone);
-    if (btn) { btn.style.background = ''; btn.style.color = 'var(--brl)'; btn.style.borderColor = 'var(--bdr)'; btn.style.fontWeight = ''; }
+    if (btn) {
+      btn.style.background = btn.dataset.bg || 'var(--cra)';
+      btn.style.color = 'var(--brl)';
+      btn.style.borderColor = '';
+      btn.style.fontWeight = '';
+    }
   } else {
     selectedZones.add(zone);
-    if (btn) { btn.style.background = 'var(--grn)'; btn.style.color = '#FAF3E4'; btn.style.borderColor = 'var(--grn)'; btn.style.fontWeight = '700'; }
+    if (btn) {
+      btn.style.background = 'var(--grn)';
+      btn.style.color = '#FAF3E4';
+      btn.style.borderColor = 'var(--grn)';
+      btn.style.fontWeight = '700';
+    }
   }
   updateZoneDisplay();
 }
