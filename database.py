@@ -1033,9 +1033,10 @@ def delete_patient_note(note_id: int) -> bool:
     try:
         with get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM patient_notes WHERE id = %s", (note_id,))
+                cur.execute("DELETE FROM patient_notes WHERE id = %s RETURNING id", (note_id,))
+                deleted = cur.fetchone()
             conn.commit()
-            return True
+            return deleted is not None
     except Exception as e:
         logger.error("delete_patient_note error: %s", e)
         return False
@@ -1056,7 +1057,9 @@ def save_treatment_zones(patient_id: int, record_date: str, zones: list, notes: 
                     VALUES (%s, %s, %s, %s)
                     RETURNING *
                 """, (patient_id, record_date, json.dumps(zones), notes))
-                return dict(cur.fetchone())
+                row = cur.fetchone()
+            conn.commit()
+            return dict(row) if row else None
     except Exception as e:
         logger.error("save_treatment_zones error: %s", e)
         return None
@@ -1076,7 +1079,10 @@ def list_treatment_zones(patient_id: int) -> list:
                 rows = [dict(r) for r in cur.fetchall()]
                 for r in rows:
                     if isinstance(r.get('zones'), str):
-                        r['zones'] = json.loads(r['zones'])
+                        try:
+                            r['zones'] = json.loads(r['zones'])
+                        except (ValueError, TypeError):
+                            r['zones'] = []
                 return rows
     except Exception as e:
         logger.error("list_treatment_zones error: %s", e)
@@ -1089,8 +1095,13 @@ def delete_treatment_zone_record(record_id: int) -> bool:
     try:
         with get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM treatment_zone_records WHERE id = %s", (record_id,))
-            return True
+                cur.execute(
+                    "DELETE FROM treatment_zone_records WHERE id = %s RETURNING id",
+                    (record_id,)
+                )
+                deleted = cur.fetchone()
+            conn.commit()
+            return deleted is not None
     except Exception as e:
         logger.error("delete_treatment_zone_record error: %s", e)
         return False
