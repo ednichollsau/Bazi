@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 CALENDAR_ID  = os.environ.get("GOOGLE_CALENDAR_ID", "acu@ednicholls.com")
 CLINIC_ID_RE = re.compile(r'\[clinic-id:(\d+)\]')
 BASE_URL     = os.environ.get("RAILWAY_PUBLIC_DOMAIN_URL", "https://ednichollsconsole.up.railway.app")
-DASHBOARD_TOKEN = os.environ.get("DASHBOARD_TOKEN", "earseed2026")
+DASHBOARD_TOKEN = os.environ.get("DASHBOARD_TOKEN")
 
 # ── Google auth ────────────────────────────────────────────────────────────────
 
@@ -112,6 +112,10 @@ def run_sync():
       GCal → Clinic : propagate reschedules and deletions back to clinic DB
     """
     import httpx
+
+    if not DASHBOARD_TOKEN:
+        logger.error("GCal sync: DASHBOARD_TOKEN not set — aborting sync.")
+        return
 
     service = get_gcal_service()
     if not service:
@@ -251,8 +255,13 @@ def run_sync():
 
         # Ed rescheduled in GCal → push new time back to clinic
         if _times_differ(clinic_start, gcal_start) and cid not in cancelled_ids:
-            new_start = (_gcal_dt_value(gcal_start) or "") + ":00"
-            new_end   = (_gcal_dt_value(gcal_end)   or "") + ":00"
+            _gs = _gcal_dt_value(gcal_start) or ""
+            _ge = _gcal_dt_value(gcal_end)   or ""
+            if not _gs:
+                logger.warning("GCal sync: clinic-id:%d has no parseable start time in GCal — skipping reschedule", cid)
+                continue
+            new_start = _gs + ":00"
+            new_end   = (_ge + ":00") if _ge else _add_hour(new_start)
             try:
                 r = httpx.put(
                     f"{BASE_URL}/api/appointments/{cid}",
@@ -340,10 +349,10 @@ def run_sync():
             logger.warning("GCal sync: no appointment types available, skipping import of '%s'", summary)
             continue
 
-        # Build start/end
-        start_dt = (start_val or "") + ":00"
-        end_val   = _gcal_dt_value(ev.get("end", {})) or ""
-        end_dt    = (end_val + ":00") if end_val else _add_hour(start_dt)
+        # Build start/end  (start_val already validated non-empty above)
+        start_dt = start_val + ":00"
+        end_val  = _gcal_dt_value(ev.get("end", {})) or ""
+        end_dt   = (end_val + ":00") if end_val else _add_hour(start_dt)
 
         # Create clinic appointment
         try:
