@@ -385,6 +385,23 @@ class ReadingRequest(BaseModel):
             raise ValueError("Birth year cannot be in the future.")
         return v
 
+    @validator("day")
+    def valid_date(cls, v, values):
+        year  = values.get("year")
+        month = values.get("month")
+        if year and month:
+            import calendar
+            max_day = calendar.monthrange(year, month)[1]
+            if v > max_day:
+                raise ValueError(f"Day {v} is out of range for month {month}/{year}.")
+        return v
+
+    @validator("hour")
+    def valid_hour(cls, v):
+        if v is not None and not (0 <= v <= 23):
+            raise ValueError("Hour must be between 0 and 23.")
+        return v
+
 class ReadingResponse(BaseModel):
     success:      bool
     message:      str
@@ -1084,9 +1101,13 @@ def get_reading(data: ReadingRequest):
     constitution = interpret_constitution(counts)
     spread       = spread_score(constitution)
     balanced     = is_balanced(constitution)
-    sorted_elems = sorted(constitution.items(), key=lambda x: STATE_RANK[x[1]])
-    weakest      = sorted_elems[0][0]
-    strongest    = sorted_elems[-1][0]
+    try:
+        sorted_elems = sorted(constitution.items(), key=lambda x: STATE_RANK[x[1]])
+        weakest      = sorted_elems[0][0]
+        strongest    = sorted_elems[-1][0]
+    except (KeyError, IndexError) as e:
+        logger.error("Element sorting error: %s — constitution: %s", e, constitution)
+        raise HTTPException(status_code=500, detail="Error analysing elemental constitution.")
 
     # 4. Ear seed protocol
     handedness = "left" if str(data.handedness or "right").lower().startswith("l") else "right"
@@ -1158,14 +1179,14 @@ def get_reading(data: ReadingRequest):
             logger.error("Resend error %s: %s", resp.status_code, resp.text)
             raise HTTPException(
                 status_code=502,
-                detail="Email send error (" + str(resp.status_code) + "): " + resp.text[:300],
+                detail="We couldn't deliver your reading email. Please check your address and try again.",
             )
         logger.info("Email sent OK: %s", resp.json())
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Resend unexpected error: %s", e)
-        raise HTTPException(status_code=502, detail=f"Email send error: {e}")
+        raise HTTPException(status_code=502, detail="We couldn't deliver your reading email. Please try again.")
 
     # 9. Log to Google Sheets — only if this email is new (non-fatal)
     if not email_exists(data.email):
@@ -1186,6 +1207,11 @@ def get_reading(data: ReadingRequest):
         logger.warning("find_or_create_patient failed (non-fatal): %s", e)
 
     # 10. Save to database — skip if identical email + DOB already recorded
+    if not (principle_obj and protocol):
+        logger.warning(
+            "Submission for %s (%s) not saved — protocol generation failed.",
+            data.name, data.email,
+        )
     if principle_obj and protocol and not submission_exists(data.email, data.year, data.month, data.day):
         points_out = []
         for p in protocol.points:
@@ -1515,16 +1541,18 @@ def api_create_patient_note(patient_id: int, body: PatientNoteIn, request: Reque
 def api_update_patient_note(note_id: int, body: PatientNoteUpdate, request: Request):
     if not _check_token(request):
         raise HTTPException(status_code=403, detail="Invalid or missing token.")
-    ok = update_patient_note(note_id, body.content)
+    ok = update_patient_note(note_id, body.content, body.zones)
     if not ok:
-        raise HTTPException(status_code=500, detail="Could not update note.")
+        raise HTTPException(status_code=404, detail="Note not found or could not be updated.")
     return JSONResponse({"ok": True})
 
 @app.delete("/api/v2/patient-notes/{note_id}")
 def api_delete_patient_note(note_id: int, request: Request):
     if not _check_token(request):
         raise HTTPException(status_code=403, detail="Invalid or missing token.")
-    delete_patient_note(note_id)
+    deleted = delete_patient_note(note_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Note not found.")
     return JSONResponse({"ok": True})
 
 
@@ -1554,7 +1582,9 @@ def api_save_zones(patient_id: int, body: TreatmentZonesIn, request: Request):
 def api_delete_zone_record(record_id: int, request: Request):
     if not _check_token(request):
         raise HTTPException(status_code=403, detail="Invalid or missing token.")
-    delete_treatment_zone_record(record_id)
+    deleted = delete_treatment_zone_record(record_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Zone record not found.")
     return JSONResponse({"ok": True})
 
 
