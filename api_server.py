@@ -59,7 +59,7 @@ app = FastAPI(title="Four Pillars · Elemental Constitution API", version="4.0.0
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["POST", "GET"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -316,6 +316,11 @@ TIP_META = {
     "REST":    {"label": "Rest",     "col": "#5B7FA3"},
     "MIND":    {"label": "Mind",     "col": "#7D8C8A"},
     "SEASONS": {"label": "Seasons",  "col": "#C4943A"},
+    "BREATHE": {"label": "Breathe",  "col": "#5B7FA3"},
+    "WATER":   {"label": "Hydrate",  "col": "#5B7FA3"},
+    "FOREST":  {"label": "Nature",   "col": "#4A6B5A"},
+    "WRITE":   {"label": "Journal",  "col": "#7D8C8A"},
+    "GROUND":  {"label": "Ground",   "col": "#C4943A"},
 }
 
 # 2026 丙午 Fire Horse year energy per element
@@ -1109,13 +1114,14 @@ def get_reading(data: ReadingRequest):
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
 
     logger.info("Calling Claude for %s...", data.name)
-    client = anthropic.Anthropic(api_key=api_key)
+    anthropic_client = anthropic.Anthropic(api_key=api_key)
     try:
-        message = client.messages.create(
+        message = anthropic_client.messages.create(
             model      = "claude-opus-4-6",
             max_tokens = 1600,
             system     = SYSTEM_PROMPT,
             messages   = [{"role": "user", "content": user_message}],
+            timeout    = 60.0,
         )
         reading_text = message.content[0].text
         logger.info("Claude response received OK")
