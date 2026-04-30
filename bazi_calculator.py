@@ -313,6 +313,8 @@ def _hour_branch(hour: int) -> int:
     Map a 24h clock hour to a branch index (0–11).
     Zǐ (子) spans 23:00–00:59; each subsequent branch covers two hours.
     """
+    if not (0 <= hour <= 23):
+        raise ValueError(f"Hour must be between 0 and 23, got {hour!r}.")
     return (hour + 1) // 2 % 12
 
 
