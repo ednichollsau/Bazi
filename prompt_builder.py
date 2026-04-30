@@ -12,6 +12,8 @@ build_user_message : callable
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from bazi_calculator import (
     STEMS,
     BRANCHES,
@@ -25,18 +27,55 @@ from bazi_calculator import (
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Current Year Pillar  (update annually)
+# Current Year Pillar  (add a new entry each year)
 # ─────────────────────────────────────────────────────────────────────────────
 
-CURRENT_YEAR        = 2026
-CURRENT_YEAR_STEM   = "丙"          # Bǐng — Yang Fire
-CURRENT_YEAR_BRANCH = "午"          # Wǔ  — Horse (Fire)
-CURRENT_YEAR_NOTE   = (
-    "2026 is 丙午 (Bǐng-Wǔ) — the Yang Fire Horse. "
-    "This is a rare double-Fire year: both the Heavenly Stem (丙) and the "
-    "Earthly Branch (午) carry Fire energy, making 2026 one of the most "
-    "intensely Yang, expansive, and fiery years in the 60-year cycle."
-)
+_YEAR_PILLARS: dict[int, dict] = {
+    2025: {
+        "stem":   "乙",
+        "branch": "巳",
+        "note": (
+            "2025 is 乙巳 (Yǐ-Sì) — the Yin Wood Snake. "
+            "Wood energy seeks growth and flexibility; the Snake brings "
+            "introspection and transformative Fire potential."
+        ),
+    },
+    2026: {
+        "stem":   "丙",
+        "branch": "午",
+        "note": (
+            "2026 is 丙午 (Bǐng-Wǔ) — the Yang Fire Horse. "
+            "This is a rare double-Fire year: both the Heavenly Stem (丙) and the "
+            "Earthly Branch (午) carry Fire energy, making 2026 one of the most "
+            "intensely Yang, expansive, and fiery years in the 60-year cycle."
+        ),
+    },
+    2027: {
+        "stem":   "丁",
+        "branch": "未",
+        "note": (
+            "2027 is 丁未 (Dīng-Wèi) — the Yin Fire Goat. "
+            "Yin Fire warms steadily rather than blazing; the Goat brings "
+            "nourishment, creativity, and gentle Earth grounding."
+        ),
+    },
+    2028: {
+        "stem":   "戊",
+        "branch": "申",
+        "note": (
+            "2028 is 戊申 (Wù-Shēn) — the Yang Earth Monkey. "
+            "Strong Earth with Metal energy; a year of structure, practicality, "
+            "and decisive action."
+        ),
+    },
+}
+
+CURRENT_YEAR = datetime.now().year
+_year_data   = _YEAR_PILLARS.get(CURRENT_YEAR, _YEAR_PILLARS[2026])  # fallback to 2026
+
+CURRENT_YEAR_STEM   = _year_data["stem"]
+CURRENT_YEAR_BRANCH = _year_data["branch"]
+CURRENT_YEAR_NOTE   = _year_data["note"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -80,9 +119,9 @@ opportunities open up. Keep it grounded and human.
 
 ### Wellness Tips
 
-Write exactly 4 tips. Each tip must start with one of these tags on its own \
+Write exactly 3 tips. Each tip must start with one of these tags on its own \
 line, followed immediately by the tip text. Choose the most fitting tag for \
-each tip — use a different tag for each one:
+each tip:
 
 [NOURISH] A food, drink, or dietary suggestion
 [MOVE] A movement, exercise, or physical practice
@@ -101,7 +140,7 @@ TONE & LENGTH
 – Personal, warm, wonder-filled. Like a letter, not a report.
 – Never assume prior knowledge.
 – Short paragraphs throughout.
-– 600–750 words total across all sections.
+– 550–700 words total across all sections.
 – This is a complementary wellness practice, not medical advice — weave that \
 in naturally, once, without making it feel like a disclaimer.\
 """
@@ -163,7 +202,7 @@ def build_user_message(
     hour_note = "" if hour_known else "\n  Hour   : Unknown — reading based on Year, Month, Day pillars only."
 
     msg = f"""\
-Please write a Four Pillars · Elemental Constitution reading for the following person.
+Please write a Ba Zi · Elemental Constitution reading for the following person.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PERSON
