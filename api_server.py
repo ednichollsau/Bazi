@@ -1169,7 +1169,7 @@ def get_reading(data: ReadingRequest):
                     "Accept":        "application/json",
                 },
                 json={
-                    "from":    "Ed Nicholls Acupuncture <readings@readings.ednicholls.com>",
+                    "from":    "Ed Nicholls Acupuncture <readings@ednicholls.com>",
                     "to":      [data.email],
                     "subject": "Your Elemental Constitution Reading, " + data.name,
                     "html":    html,
