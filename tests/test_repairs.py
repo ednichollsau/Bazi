@@ -75,8 +75,9 @@ class GeneratorTests(unittest.TestCase):
             generate.assert_not_called()
 
     def test_generator_uses_real_calculations_without_delivery_or_patient_writes(self):
-        model=Mock();model.messages.create.return_value.content=[Mock(text='Fictional reading')]
-        with patch.object(api,'DASHBOARD_TOKEN','test-token'),patch.dict(os.environ,{'ANTHROPIC_API_KEY':'test-key'}),patch.object(api.anthropic,'Anthropic',return_value=model),patch.object(api.httpx,'Client') as delivery,patch.object(api,'save_submission') as save,patch.object(api,'find_or_create_patient') as patient:
+        model=Mock();model.__enter__=Mock(return_value=model);model.__exit__=Mock(return_value=False)
+        model.responses.create.return_value=Mock(output_text='Fictional reading',status='completed')
+        with patch.object(api,'DASHBOARD_TOKEN','test-token'),patch.dict(os.environ,{'OPENAI_API_KEY':'test-key'}),patch.object(api,'OpenAI',return_value=model),patch.object(api.httpx,'Client') as delivery,patch.object(api,'save_submission') as save,patch.object(api,'find_or_create_patient') as patient:
             response=self.client.post('/generate',json=self.data,headers={'Authorization':'Bearer test-token'})
         self.assertEqual(response.status_code,200,response.text)
         self.assertTrue(response.json()['protocol']['points'])
@@ -85,11 +86,12 @@ class GeneratorTests(unittest.TestCase):
         delivery.assert_not_called();save.assert_not_called();patient.assert_not_called()
 
     def test_public_reading_delivery_flow_preserved(self):
-        model=Mock();model.messages.create.return_value.content=[Mock(text='Fictional reading')]
+        model=Mock();model.__enter__=Mock(return_value=model);model.__exit__=Mock(return_value=False)
+        model.responses.create.return_value=Mock(output_text='Fictional reading',status='completed')
         delivery=Mock();delivery.__enter__=Mock(return_value=delivery);delivery.__exit__=Mock(return_value=False)
         delivery.post.return_value.status_code=200
         delivery.post.return_value.json.return_value={'id':'mock-only'}
-        with patch.dict(os.environ,{'ANTHROPIC_API_KEY':'test-key','RESEND_API_KEY':'test-key'}),patch.object(api.anthropic,'Anthropic',return_value=model),patch.object(api.httpx,'Client',return_value=delivery),patch.object(api,'email_exists',return_value=True),patch.object(api,'submission_exists',return_value=False),patch.object(api,'find_or_create_patient',return_value=1),patch.object(api,'save_submission') as save:
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'test-key','RESEND_API_KEY':'test-key'}),patch.object(api,'OpenAI',return_value=model),patch.object(api.httpx,'Client',return_value=delivery),patch.object(api,'email_exists',return_value=True),patch.object(api,'submission_exists',return_value=False),patch.object(api,'find_or_create_patient',return_value=1),patch.object(api,'save_submission') as save:
             response=self.client.post('/reading',json={**self.data,'email':'fictional@example.invalid'})
         self.assertEqual(response.status_code,200,response.text)
         self.assertTrue(response.json()['success'])
@@ -97,6 +99,35 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(delivery.post.call_count,1)
         self.assertEqual(delivery.post.call_args.kwargs['json']['to'],['fictional@example.invalid'])
         self.assertEqual(save.call_count,1)
+
+    def test_missing_openai_key_does_not_send_email(self):
+        with patch.dict(os.environ,{'OPENAI_API_KEY':''}),patch.object(api.httpx,'Client') as email:
+            response=self.client.post('/reading',json={**self.data,'email':'fictional@example.invalid'})
+        self.assertEqual(response.status_code,503)
+        email.assert_not_called()
+
+    def test_failed_or_incomplete_response_never_emails(self):
+        for result in [Mock(output_text='Partial text',status='incomplete'),Mock(output_text='',status='completed'),RuntimeError('secret-provider-details')]:
+            model=Mock();model.__enter__=Mock(return_value=model);model.__exit__=Mock(return_value=False)
+            if isinstance(result,Exception):model.responses.create.side_effect=result
+            else:model.responses.create.return_value=result
+            with patch.dict(os.environ,{'OPENAI_API_KEY':'test-key'}),patch.object(api,'OpenAI',return_value=model),patch.object(api.httpx,'Client') as email:
+                response=self.client.post('/reading',json={**self.data,'email':'fictional@example.invalid'})
+            self.assertEqual(response.status_code,502)
+            self.assertNotIn('secret-provider-details',response.text)
+            email.assert_not_called()
+
+    def test_openai_request_preserves_prompt_and_disables_response_storage(self):
+        model=Mock();model.__enter__=Mock(return_value=model);model.__exit__=Mock(return_value=False)
+        model.responses.create.return_value=Mock(output_text='Fictional reading',status='completed')
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'test-key','OPENAI_READING_MODEL':'configured-model'}),patch.object(api,'OpenAI',return_value=model):
+            api._generate_reading(api.GeneratorRequest(**self.data))
+        request=model.responses.create.call_args.kwargs
+        self.assertEqual(request['model'],'configured-model')
+        self.assertEqual(request['instructions'],api.SYSTEM_PROMPT)
+        self.assertFalse(request['store'])
+        self.assertNotIn('email',request['input'].lower())
+        self.assertIn('Fictional Test',request['input'])
 
     def test_invalid_date_rejected(self):
         self.data.update(month=2,day=31)

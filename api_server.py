@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field, validator
 from typing import Optional
 from datetime import date, datetime, timezone
-import anthropic
+from openai import OpenAI
 import httpx
 import os
 import re
@@ -1122,7 +1122,7 @@ def _generate_reading(data: GeneratorRequest):
         logger.error("Protocol error: %s", e)
         principle_obj, protocol = None, None
 
-    # 5. Build Claude prompt
+    # 5. Build the reading prompt
     user_message = build_user_message(
         name         = data.name,
         pillars      = pillars,
@@ -1134,26 +1134,29 @@ def _generate_reading(data: GeneratorRequest):
         hour_known   = hour_known,
     )
 
-    # 6. Call Claude
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    # 6. Generate prose through OpenAI. Calculations and protocol stay deterministic.
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
+        raise HTTPException(status_code=503, detail="Reading generation is temporarily unavailable.")
 
-    logger.info("Calling Claude for %s...", data.name)
-    anthropic_client = anthropic.Anthropic(api_key=api_key)
     try:
-        message = anthropic_client.messages.create(
-            model      = "claude-opus-4-6",
-            max_tokens = 1600,
-            system     = SYSTEM_PROMPT,
-            messages   = [{"role": "user", "content": user_message}],
-            timeout    = 60.0,
-        )
-        reading_text = message.content[0].text
-        logger.info("Claude response received OK")
-    except Exception as e:
-        logger.error("Claude API error: %s", e)
-        raise HTTPException(status_code=502, detail=f"Claude API error: {e}")
+        with OpenAI(api_key=api_key, timeout=60.0, max_retries=0) as client:
+            response = client.responses.create(
+                model=os.environ.get("OPENAI_READING_MODEL", "gpt-6-astra"),
+                instructions=SYSTEM_PROMPT,
+                input=user_message,
+                reasoning={"effort": "low"},
+                max_output_tokens=4000,
+                store=False,
+            )
+        reading_text = (response.output_text or "").strip()
+        if response.status != "completed" or not reading_text:
+            raise ValueError("Incomplete or empty reading")
+        logger.info("OpenAI reading generated successfully")
+    except Exception as exc:
+        # Provider error bodies can contain request data; keep them out of public errors/logs.
+        logger.error("Reading generation failed (%s)", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="We couldn't generate your reading. Please try again.") from None
 
     return pillars, constitution, reading_text, principle_obj, protocol, handedness
 

@@ -44,3 +44,7 @@ Railway still explicitly reports "Deploys have been paused due to an upstream is
 JavaScript syntax checks pass for dashboard, generator and worker. An isolated browser check signed in, opened the generator and rendered a fictional result with the real calculation engine and mocked prose. No patient records, real appointments, calendar events or external emails were created. This verifies software wiring; it is not clinical validation of the inherited protocol rules.
 
 Calendar reconciliation uses Google's documented private extended properties and conditional event updates: https://developers.google.com/workspace/calendar/api/guides/extended-properties and https://developers.google.com/workspace/calendar/api/v3/reference/events/patch.
+
+## Prepared OpenAI migration
+
+The separate OpenAI migration replaces prose generation for both endpoints; see OPENAI-MIGRATION.md for activation requirements. Railway still needs OPENAI_API_KEY and a successful deployment. Do not describe the production service as switched until verified.
