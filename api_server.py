@@ -1689,3 +1689,44 @@ def dashboard(request: Request):
         return HTMLResponse(html, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="dashboard.html not found.")
+
+
+@app.get("/api/marketing/reading-subscribers")
+async def reading_subscribers(request: Request, after: int = 0):
+    """Minimal consented-reading contact export for the verified booking administrator.
+
+    Existing submissions are covered by the mandatory consent checkbox on
+    /your-cosmology, confirmed by the practice owner on 22 October 2026.
+    No constitution, birth details, clinical notes or treatment data are exported.
+    """
+    authorization = request.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Administrator sign-in required.")
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                "https://bdzasnbzyfkqojqqucil.supabase.co/rest/v1/rpc/is_admin",
+                headers={"apikey": BOOKING_PUBLIC_KEY, "Authorization": authorization},
+                json={},
+            )
+        if response.status_code != 200 or response.json() is not True:
+            raise HTTPException(status_code=403, detail="Administrator access required.")
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail="Unable to verify administrator.")
+    from database import get_conn
+    from psycopg2.extras import RealDictCursor
+    try:
+        with get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT id, name, email, created_at FROM submissions WHERE id > %s ORDER BY id LIMIT 500", (max(0, after),))
+                rows = [dict(row) for row in cur.fetchall()]
+        for row in rows:
+            if row.get("created_at"):
+                row["created_at"] = row["created_at"].isoformat()
+        return {"contacts": rows, "next": rows[-1]["id"] if len(rows) == 500 else None}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Reading contacts could not be loaded.")
+
+# Publishable browser key; administrative authority comes only from the verified user JWT.
+BOOKING_PUBLIC_KEY = 'sb_publishable_XOH_-PTfkNsPhwY5eMV_Tg_M9GPbWE5'
