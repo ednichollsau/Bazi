@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ear Seed Protocol · Ba Zi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream:        #FAF3E4;
+      --cream-dark:   #F0E6D3;
+      --brown:        #2C1A0E;
+      --brown-mid:    #6B4C36;
+      --brown-light:  #8B6F5C;
+      --green:        #3D5A4C;
+      --green-dark:   #2e4439;
+      --border:       #E0D5C1;
+      --font:         'Raleway', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background:  var(--cream);
+      color:       var(--brown);
+      min-height:  100vh;
+    }
+
+    /* ─────────────────────────── Form page ── */
+
+    .form-page {
+      max-width: 680px;
+      margin:    0 auto;
+      padding:   72px 24px 80px;
+    }
+
+    .form-card {
+      background: var(--cream);
+      border:     1px solid var(--border);
+      padding:    48px 40px 40px;
+    }
+
+    .eyebrow {
+      font-size:      9px;
+      font-weight:    600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color:          var(--green);
+      margin-bottom:  14px;
+    }
+
+    .form-title {
+      font-size:     30px;
+      font-weight:   300;
+      line-height:   1.2;
+      color:         var(--brown);
+      margin-bottom: 20px;
+    }
+
+    .form-intro {
+      font-size:     14px;
+      line-height:   1.75;
+      color:         var(--brown-mid);
+      margin-bottom: 28px;
+    }
+
+    .field-group { margin-bottom: 26px; }
+
+    .field-label {
+      display:        block;
+      font-size:      10px;
+      font-weight:    600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color:          var(--brown-light);
+      margin-bottom:  6px;
+    }
+
+    .field-input {
+      display:        block;
+      width:          100%;
+      padding:        11px 14px;
+      font-size:      15px;
+      font-family:    var(--font);
+      letter-spacing: 0.03em;
+      border:         1px solid var(--border);
+      border-radius:  2px;
+      background:     var(--cream);
+      color:          var(--brown);
+      appearance:     none;
+      -webkit-appearance: none;
+      transition:     border-color 0.2s;
+    }
+    .field-input::placeholder { color: var(--brown-light); opacity: 0.7; }
+    .field-input:focus        { outline: none; border-color: var(--green); }
+
+    .date-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .date-hints {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 5px;
+    }
+
+    .date-hint {
+      font-size:      10px;
+      color:          var(--brown-light);
+      text-align:     center;
+      letter-spacing: 0.03em;
+    }
+
+    .date-row input { text-align: center; }
+
+    .field-note {
+      font-size:   11px;
+      color:       var(--brown-light);
+      margin-top:  6px;
+      line-height: 1.5;
+    }
+
+    .radio-row { display: flex; gap: 10px; }
+
+    .radio-label {
+      display:     flex;
+      align-items: center;
+      gap:         8px;
+      flex:        1;
+      padding:     11px 14px;
+      border:      1px solid var(--border);
+      border-radius: 2px;
+      cursor:      pointer;
+      font-size:   14px;
+      color:       var(--brown-mid);
+      transition:  border-color 0.2s, color 0.2s;
+      user-select: none;
+    }
+    .radio-label:has(input:checked) { border-color: var(--green); color: var(--brown); }
+    .radio-label input[type="radio"] {
+      accent-color: var(--green);
+      width: 15px; height: 15px; flex-shrink: 0;
+    }
+
+    .btn-submit {
+      margin-top:     24px;
+      padding:        15px;
+      width:          100%;
+      font-family:    var(--font);
+      font-size:      12px;
+      font-weight:    600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      background:     var(--green);
+      color:          var(--cream);
+      border:         none;
+      border-radius:  2px;
+      cursor:         pointer;
+      transition:     background 0.2s;
+    }
+    .btn-submit:hover:not(:disabled)  { background: var(--green-dark); }
+    .btn-submit:active:not(:disabled) { background: #253a30; }
+    .btn-submit:disabled              { opacity: 0.55; cursor: not-allowed; }
+
+    .error-box {
+      display:     none;
+      background:  #FDF0EE;
+      border:      1px solid #D4836B;
+      border-left: 3px solid #B85C4A;
+      padding:     14px 18px;
+      margin-top:  14px;
+      font-size:   14px;
+      color:       #8B3A28;
+      line-height: 1.6;
+    }
+
+    /* ─────────────────────────── Loading ── */
+
+    .loading-page {
+      display:        none;
+      text-align:     center;
+      padding:        120px 24px;
+      font-size:      13px;
+      letter-spacing: 0.12em;
+      color:          var(--brown-light);
+    }
+
+    .loading-spinner {
+      display:        inline-block;
+      width:          18px;
+      height:         18px;
+      border:         2px solid var(--border);
+      border-top:     2px solid var(--green);
+      border-radius:  50%;
+      animation:      spin 0.8s linear infinite;
+      margin-right:   10px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─────────────────────────── Results ── */
+
+    .results-page {
+      display:    none;
+      max-width:  680px;
+      margin:     0 auto;
+      padding:    60px 32px 100px;
+    }
+
+    .back-btn {
+      display:        inline-block;
+      font-size:      10px;
+      font-weight:    600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color:          var(--brown-light);
+      background:     none;
+      border:         none;
+      padding:        0;
+      cursor:         pointer;
+      font-family:    var(--font);
+      margin-bottom:  44px;
+      transition:     color 0.2s;
+    }
+    .back-btn:hover { color: var(--green); }
+
+    /* Results header */
+    .results-header  { margin-bottom: 44px; }
+    .results-eyebrow {
+      font-size:      9px;
+      font-weight:    600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color:          var(--green);
+      margin-bottom:  12px;
+    }
+    .results-name {
+      font-size:     32px;
+      font-weight:   300;
+      line-height:   1.2;
+      color:         var(--brown);
+      margin-bottom: 14px;
+    }
+    .results-principle {
+      font-size:     15px;
+      font-weight:   300;
+      color:         var(--brown-mid);
+      margin-bottom: 8px;
+      letter-spacing: 0.01em;
+    }
+    .results-principle .sep { color: var(--brown-light); margin: 0 8px; }
+    .results-daymaster {
+      font-size:      11px;
+      letter-spacing: 0.08em;
+      color:          var(--brown-light);
+    }
+
+    /* Section layout */
+    .section-rule  { height: 1px; background: var(--border); margin: 44px 0; }
+    .section-label {
+      font-size:      9px;
+      font-weight:    600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color:          var(--green);
+      margin-bottom:  24px;
+    }
+
+    /* Reading */
+    .reading-h2 {
+      font-size:      9px;
+      font-weight:    600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color:          var(--green);
+      margin:         28px 0 12px;
+    }
+    .reading-h2:first-child { margin-top: 0; }
+
+    .reading-h3 {
+      font-size:      9px;
+      font-weight:    600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color:          var(--brown-light);
+      margin:         28px 0 14px;
+    }
+
+    .reading-p {
+      font-size:     15px;
+      line-height:   1.8;
+      color:         var(--brown-mid);
+      margin-bottom: 14px;
+    }
+
+    .tip-card {
+      display:     flex;
+      align-items: flex-start;
+      gap:         14px;
+      padding:     13px 0;
+      border-top:  1px solid var(--border);
+    }
+    .tip-card:first-of-type { border-top: none; }
+
+    .tip-tag {
+      font-size:      8px;
+      font-weight:    700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color:          var(--tip-col, var(--green));
+      border:         1px solid var(--tip-col, var(--green));
+      border-radius:  1px;
+      padding:        3px 7px;
+      white-space:    nowrap;
+      margin-top:     2px;
+      flex-shrink:    0;
+    }
+
+    .tip-text {
+      font-size:   14px;
+      line-height: 1.65;
+      color:       var(--brown-mid);
+    }
+
+    .reading-conclusion {
+      font-size:    15px;
+      line-height:  1.8;
+      color:        var(--brown-mid);
+      font-style:   italic;
+      padding-top:  24px;
+      margin-top:   20px;
+      border-top:   1px solid var(--border);
+    }
+
+    /* Element bars */
+    .element-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+
+    .element-name {
+      width:          44px;
+      font-size:      11px;
+      font-weight:    600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      flex-shrink:    0;
+    }
+    .element-track {
+      flex:       1;
+      height:     4px;
+      background: var(--border);
+    }
+    .element-fill {
+      height:     100%;
+      transition: width 0.7s ease;
+    }
+    .element-state {
+      width:          76px;
+      font-size:      10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color:          var(--brown-light);
+      text-align:     right;
+      flex-shrink:    0;
+    }
+
+    /* Ear protocol */
+    .ear-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    .ear-card {
+      background: var(--cream-dark);
+      border:     1px solid var(--border);
+    }
+
+    .ear-card-header {
+      padding:       14px 20px;
+      border-bottom: 1px solid var(--border);
+      display:       flex;
+      align-items:   center;
+      justify-content: space-between;
+    }
+    .ear-card-title {
+      font-size:      9px;
+      font-weight:    600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color:          var(--green);
+    }
+    .ear-card-count {
+      font-size:      10px;
+      letter-spacing: 0.05em;
+      color:          var(--brown-light);
+    }
+
+    .point-entry { padding: 13px 18px; }
+    .point-entry + .point-entry { border-top: 1px solid var(--border); }
+
+    .point-section-divider {
+      padding:        7px 18px;
+      font-size:      8px;
+      font-weight:    600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color:          var(--brown-light);
+      background:     rgba(44,26,14,0.03);
+      border-top:     1px solid var(--border);
+      border-bottom:  1px solid var(--border);
+    }
+
+    .point-top {
+      display:         flex;
+      align-items:     flex-start;
+      justify-content: space-between;
+      gap:             8px;
+      margin-bottom:   3px;
+    }
+    .point-name {
+      font-size:   14px;
+      font-weight: 600;
+      color:       var(--brown);
+      line-height: 1.3;
+    }
+    .bilateral-tag {
+      display:        inline-block;
+      font-size:      8px;
+      font-weight:    700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color:          var(--brown-light);
+      border:         1px solid var(--border);
+      padding:        1px 5px;
+      margin-left:    5px;
+      vertical-align: middle;
+    }
+
+    .metal-chip {
+      display:        inline-flex;
+      align-items:    center;
+      gap:            5px;
+      font-size:      8px;
+      font-weight:    700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding:        3px 8px;
+      border-width:   1px;
+      border-style:   solid;
+      border-radius:  1px;
+      white-space:    nowrap;
+      flex-shrink:    0;
+    }
+    .metal-chip.gold   { background: #F8EDD6; border-color: #C4963A; color: #7A5A10; }
+    .metal-chip.silver { background: #E8E4DC; border-color: #9E9080; color: #4A3D30; }
+    .metal-dot         { width: 5px; height: 5px; border-radius: 50%; }
+    .metal-chip.gold   .metal-dot { background: #C4963A; }
+    .metal-chip.silver .metal-dot { background: #9E9080; }
+
+    .point-meta {
+      font-size:      10px;
+      letter-spacing: 0.05em;
+      color:          var(--brown-light);
+      margin-bottom:  4px;
+    }
+    .point-action  { font-size: 13px; line-height: 1.55; color: var(--brown-mid); }
+    .point-body-ref {
+      margin-top:  4px;
+      font-size:   11px;
+      color:       var(--brown-light);
+      font-style:  italic;
+      line-height: 1.4;
+    }
+    .point-note {
+      margin-top:  5px;
+      font-size:   11px;
+      color:       var(--brown-light);
+      line-height: 1.4;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .form-card     { padding: 32px 22px 28px; }
+      .results-page  { padding: 40px 20px 60px; }
+      .ear-columns   { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ Form ═══════════════════════════════════════════════ -->
+  <div class="form-page" id="state-form">
+    <div class="form-card">
+
+      <p class="eyebrow">Ba Zi &nbsp;&middot;&nbsp; Ear Seed Protocol</p>
+      <p class="form-title">Your Constitutional Reading &amp; Protocol</p>
+      <p class="form-intro">
+        Enter your birth details below to receive your personalised Ba Zi constitutional reading and auricular ear seed protocol — derived directly from your Four Pillars elemental chart.
+      </p>
+
+      <form id="gen-form" novalidate>
+
+        <div class="field-group">
+          <label class="field-label" for="inp-name">Your name</label>
+          <input class="field-input" type="text" id="inp-name" placeholder="First name" autocomplete="given-name">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Date of birth</label>
+          <div class="date-row">
+            <input class="field-input" type="number" id="inp-day"   placeholder="Day"   min="1"    max="31">
+            <input class="field-input" type="number" id="inp-month" placeholder="Month" min="1"    max="12">
+            <input class="field-input" type="number" id="inp-year"  placeholder="Year"  min="1900" max="2026">
+          </div>
+          <div class="date-hints">
+            <span class="date-hint">1–31</span>
+            <span class="date-hint">1–12</span>
+            <span class="date-hint">e.g. 1985</span>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="inp-hour">Hour of birth</label>
+          <input class="field-input" type="number" id="inp-hour" placeholder="Hour (0–23)" min="0" max="23">
+          <p class="field-note">24-hour format — e.g. 14 for 2 pm. Leave blank if unknown.</p>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Handedness</label>
+          <div class="radio-row">
+            <label class="radio-label">
+              <input type="radio" name="handedness" value="right" checked> Right-handed
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="handedness" value="left"> Left-handed
+            </label>
+          </div>
+          <p class="field-note">Determines Gold and Silver ear point placement for functional points.</p>
+        </div>
+
+        <button class="btn-submit" type="submit" id="btn-submit">
+          Generate reading &amp; protocol
+        </button>
+
+      </form>
+
+      <div class="error-box" id="error-box"></div>
+    </div>
+  </div>
+
+  <!-- ══ Loading ════════════════════════════════════════════ -->
+  <div class="loading-page" id="state-loading">
+    <span class="loading-spinner"></span>Generating your reading&hellip;
+  </div>
+
+  <!-- ══ Results ════════════════════════════════════════════ -->
+  <div class="results-page" id="state-results"></div>
+
+<script>
+  const API_BASE = location.protocol === 'file:' ? 'http://localhost:8000' : '';
+
+  const ELEM_COL  = { Wood:'#5A7A4C', Fire:'#9E5040', Earth:'#A87C35', Metal:'#7A8885', Water:'#4A6E8C' };
+  const STATE_PCT = { Absent:4, Low:28, Balanced:58, Excess:100 };
+  const INTENT    = { tonify:'Nourish', sedate:'Regulate', regulate:'Regulate Qi' };
+  const UNIVERSAL = new Set(['Shen Men','Point Zero','Thalamus Point','Sympathetic Autonomic']);
+  const TIP_COL   = { NOURISH:'#3D5A4C', MOVE:'#8B4A3A', REST:'#7A6440', MIND:'#5C6B68', SEASONS:'#8B6E2A' };
+
+
+  // ── State switching ──────────────────────────────────────
+  function showState(name) {
+    document.getElementById('state-form').style.display    = name === 'form'    ? 'block' : 'none';
+    document.getElementById('state-loading').style.display = name === 'loading' ? 'block' : 'none';
+    document.getElementById('state-results').style.display = name === 'results' ? 'block' : 'none';
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-box');
+    el.textContent   = msg;
+    el.style.display = 'block';
+  }
+  function clearError() {
+    const el = document.getElementById('error-box');
+    el.textContent   = '';
+    el.style.display = 'none';
+  }
+
+  function resetForm() {
+    clearError();
+    showState('form');
+  }
+
+  // ── Reading parser ───────────────────────────────────────
+  // Handles: ## headings, ### headings, [TAG] tips, paragraphs, conclusion
+  function renderReading(text) {
+    const lines = text.split('\n');
+    let html = '', buf = [], inTips = false, pastTips = false;
+
+    function flush() {
+      if (!buf.length) return;
+      const s = buf.join(' ').trim();
+      if (s) html += `<p class="${pastTips ? 'reading-conclusion' : 'reading-p'}">${s}</p>`;
+      buf = [];
+    }
+
+    for (const raw of lines) {
+      const line = raw.trim();
+
+      if (line.startsWith('## ')) {
+        flush();
+        html += `<h2 class="reading-h2">${line.slice(3)}</h2>`;
+        inTips = false; continue;
+      }
+      if (line.startsWith('### ')) {
+        flush();
+        html += `<h3 class="reading-h3">${line.slice(4)}</h3>`;
+        inTips = true; continue;
+      }
+
+      const tip = line.match(/^\[([A-Z]+)\]\s+(.+)$/);
+      if (tip) {
+        flush();
+        const col = TIP_COL[tip[1]] || '#3D5A4C';
+        html += `<div class="tip-card" style="--tip-col:${col}">
+          <span class="tip-tag">${tip[1]}</span>
+          <span class="tip-text">${tip[2]}</span>
+        </div>`;
+        continue;
+      }
+
+      if (!line) {
+        flush();
+        if (inTips) { inTips = false; pastTips = true; }
+        continue;
+      }
+
+      buf.push(line);
+    }
+    flush();
+    return html;
+  }
+
+  // ── Render results ───────────────────────────────────────
+  function render(data, name) {
+    const { constitution, reading, principle, day_master, protocol } = data;
+    const el = document.getElementById('state-results');
+
+    // principle with separators
+    const principleHtml = principle.split(' · ')
+      .map(p => `<span>${p}</span>`)
+      .join('<span class="sep"> · </span>');
+
+    // element bars
+    const barsHtml = ['Wood','Fire','Earth','Metal','Water'].map(e => {
+      const state = constitution[e] || 'Balanced';
+      return `<div class="element-row">
+        <div class="element-name" style="color:${ELEM_COL[e]}">${e}</div>
+        <div class="element-track">
+          <div class="element-fill" style="width:${STATE_PCT[state]??58}%;background:${ELEM_COL[e]}"></div>
+        </div>
+        <div class="element-state">${state}</div>
+      </div>`;
+    }).join('');
+
+    // single point entry
+    function pointEntry(p, showBilateral) {
+      const bil = (showBilateral && p.ear === 'bilateral')
+        ? '<span class="bilateral-tag">both</span>' : '';
+
+      let bodyRef = '';
+      if (p.point_type === 'organ') {
+        if (p.intent === 'tonify' && p.body_point_tonify)
+          bodyRef = `<div class="point-body-ref">Yuan Source — ${p.body_point_tonify}</div>`;
+        else if ((p.intent === 'sedate' || p.intent === 'regulate') && p.body_point_sedate)
+          bodyRef = `<div class="point-body-ref">Luo Point — ${p.body_point_sedate}</div>`;
+      }
+
+      const noteText = p.note ? p.note.split('(')[0].trim().replace(/\.$/, '') : '';
+      const metaText = UNIVERSAL.has(p.name)
+        ? `${INTENT[p.intent] || p.intent} · Master point`
+        : (INTENT[p.intent] || p.intent);
+
+      return `<div class="point-entry">
+        <div class="point-top">
+          <div class="point-name">${p.name}${bil}</div>
+          <div class="metal-chip ${p.metal}">
+            <div class="metal-dot"></div>${p.metal.charAt(0).toUpperCase() + p.metal.slice(1)}
+          </div>
+        </div>
+        <div class="point-meta">${metaText}</div>
+        <div class="point-action">${p.action}</div>
+        ${bodyRef}
+        ${noteText ? `<div class="point-note">${noteText}</div>` : ''}
+      </div>`;
+    }
+
+    // ear column
+    function earCol(side) {
+      const pts     = protocol.points.filter(p => p.ear === side || p.ear === 'bilateral');
+      const masters = pts.filter(p => UNIVERSAL.has(p.name));
+      const constit = pts.filter(p => !UNIVERSAL.has(p.name));
+      const title   = side.charAt(0).toUpperCase() + side.slice(1);
+
+      let inner = masters.map(p => pointEntry(p, false)).join('');
+      if (constit.length) {
+        inner += `<div class="point-section-divider">Constitutional points</div>`;
+        inner += constit.map(p => pointEntry(p, true)).join('');
+      }
+
+      return `<div class="ear-card">
+        <div class="ear-card-header">
+          <div class="ear-card-title">${title} ear</div>
+          <div class="ear-card-count">${pts.length} point${pts.length !== 1 ? 's' : ''}</div>
+        </div>
+        <div>${inner}</div>
+      </div>`;
+    }
+
+    const displayName = name && name.trim() ? name.trim() : 'Your';
+    const handLabel   = protocol.handedness.charAt(0).toUpperCase() + protocol.handedness.slice(1);
+
+    el.innerHTML = `
+      <button class="back-btn" onclick="resetForm()">← New reading</button>
+
+      <div class="results-header">
+        <p class="results-eyebrow">Ba Zi &nbsp;&middot;&nbsp; Ear Seed Protocol</p>
+        <p class="results-name">${displayName}'s Reading &amp; Protocol</p>
+        <p class="results-principle">${principleHtml}</p>
+        <p class="results-daymaster">Day Master: ${day_master}</p>
+      </div>
+
+      <div class="section-label">Your Reading</div>
+      <div class="reading-body">${renderReading(reading)}</div>
+
+      <div class="section-rule"></div>
+
+      <div class="section-label">Five Element Constitution</div>
+      ${barsHtml}
+
+      <div class="section-rule"></div>
+
+      <div class="section-label">Ear Seed Protocol &mdash; ${handLabel}-handed</div>
+      <div class="ear-columns">
+        ${earCol('left')}
+        ${earCol('right')}
+      </div>`;
+
+    showState('results');
+  }
+
+  // ── Form submit ──────────────────────────────────────────
+  document.getElementById('gen-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    clearError();
+
+    const year  = parseInt(document.getElementById('inp-year').value);
+    const month = parseInt(document.getElementById('inp-month').value);
+    const day   = parseInt(document.getElementById('inp-day').value);
+    const hourRaw = document.getElementById('inp-hour').value;
+    const hour    = hourRaw === '' ? null : parseInt(hourRaw, 10);
+    const handedness = document.querySelector('input[name="handedness"]:checked').value;
+    const name       = document.getElementById('inp-name').value;
+
+    if (!year || !month || !day)
+      return showError('Please enter your full date of birth.');
+
+    showState('loading');
+    document.getElementById('btn-submit').disabled = true;
+
+    try {
+      const resp = await fetch(`${API_BASE}/generate`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ year, month, day, hour, handedness, name }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || `Server error ${resp.status}`);
+      }
+
+      render(await resp.json(), name);
+
+    } catch (err) {
+      showState('form');
+      showError(`Could not generate reading: ${err.message}`);
+    } finally {
+      document.getElementById('btn-submit').disabled = false;
+    }
+  });
+
+  showState('form');
+</script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!-- Current live Squarespace homepage popup, captured 2026-10-22. -->
+<script>
+(function(){
+  var API = 'https://ednichollsconsole.up.railway.app/reading';
+  var injected = false;
+
+  // ── Should we show? ───────────────────────────────────────
+  function shouldShow(){
+    try {
+      var closed = localStorage.getItem('ena_popup_closed');
+      if(!closed) return true;
+      var days30 = 30 * 24 * 60 * 60 * 1000;
+      return (Date.now() - parseInt(closed)) > days30;
+    } catch(e){ return true; }
+  }
+
+  // ── CSS (only injected on demand) ─────────────────────────
+  var CSS = ''
+    + '#ena-overlay{position:fixed;inset:0;z-index:99999;background:rgba(30,20,10,0.72);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;transition:opacity 0.4s ease;pointer-events:none}'
+    + '#ena-overlay.visible{opacity:1;pointer-events:all}'
+    + '#ena-modal{background:#F5F0E6;border-radius:12px;width:100%;max-width:600px;max-height:90vh;overflow:hidden auto;position:relative;transform:translateY(24px);transition:transform 0.4s ease;font-family:\'Raleway\',Arial,sans-serif;color:#2A1F10;-webkit-overflow-scrolling:touch}'
+    + '#ena-overlay.visible #ena-modal{transform:translateY(0)}'
+    + '#ena-close{position:sticky;top:0;float:right;z-index:10;margin:14px 14px -32px 0;background:none;border:none;cursor:pointer;font-size:22px;color:#A08470;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.15s}'
+    + '#ena-close:hover{background:#EDE5D0;color:#2A1F10}'
+    + '#ena-hero{padding:44px 48px 32px;text-align:center;background:#F5F0E6}'
+    + '#ena-hero .kicker{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#4D5D53;display:block;margin-bottom:16px}'
+    + '#ena-hero h2{font-family:\'marisa-quegpp\',\'Raleway\',sans-serif;font-size:clamp(22px,4vw,34px);font-weight:300;letter-spacing:0.14em;text-transform:uppercase;color:#2A1F10;line-height:1.2;margin-bottom:14px}'
+    + '#ena-hero p{font-size:14px;font-style:italic;font-weight:300;color:#6B5740;line-height:1.8;max-width:480px;margin:0 auto}'
+    + '#ena-offer{display:flex;justify-content:center;gap:24px;margin-top:20px;flex-wrap:wrap}'
+    + '#ena-offer span{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:#4D5D53;display:flex;align-items:center;gap:6px}'
+    + '#ena-offer span::before{content:\'\';display:inline-block;width:4px;height:4px;border-radius:50%;background:#B0956E}'
+    + '#ena-form-wrap{background:#EDE5D0;padding:32px 48px 40px;border-top:1px solid #D8CCBA}'
+    + '#ena-form-wrap h3{font-family:\'marisa-quegpp\',\'Raleway\',sans-serif;font-size:11px;font-weight:300;letter-spacing:0.28em;text-transform:uppercase;color:#2A1F10;margin-bottom:22px;text-align:center}'
+    + '#ena-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}'
+    + '.ena-fg{display:flex;flex-direction:column;gap:5px}'
+    + '.ena-fg.full{grid-column:1/-1}'
+    + '.ena-fg label{font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:#4D5D53}'
+    + '.ena-fg input,.ena-fg select{background:#FAF6EE;border:1px solid #C8B49A;border-radius:8px;padding:11px 13px;font-family:\'Raleway\',Arial,sans-serif;font-size:13px;color:#2A1F10;outline:none;transition:border-color 0.2s;width:100%;-webkit-appearance:none}'
+    + '.ena-fg input::placeholder{color:#B0956E;opacity:0.7}'
+    + '.ena-fg input:focus,.ena-fg select:focus{border-color:#4D5D53}'
+    + '.ena-date-row{grid-column:1/-1;display:flex;flex-direction:row;flex-wrap:nowrap;gap:12px}'
+    + '.ena-date-row .ena-fg{flex:1 1 0;min-width:0}'
+    + '#ena-modal *{box-sizing:border-box !important}'
+    + '.ena-hand-row{grid-column:1/-1;display:flex;flex-direction:column;gap:7px}'
+    + '.ena-hand-lbl{font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:#4D5D53}'
+    + '.ena-hand-opts{display:flex;gap:20px}'
+    + '.ena-hand-opts label{display:flex;align-items:center;gap:7px;font-size:13px;color:#2A1F10;text-transform:none;letter-spacing:0.02em;cursor:pointer;font-weight:300}'
+    + '.ena-hand-opts input[type=radio]{width:15px;height:15px;accent-color:#4D5D53}'
+    + '.ena-consent{grid-column:1/-1;display:flex;align-items:flex-start;gap:9px;margin-top:2px}'
+    + '.ena-consent input[type=checkbox]{width:15px;min-width:15px;height:15px;margin-top:2px;accent-color:#4D5D53}'
+    + '.ena-consent label{font-size:10px;color:#6B5740;text-transform:none;letter-spacing:0.02em;line-height:1.55}'
+    + '#ena-error{grid-column:1/-1;background:#fdf0ee;border:1px solid #e4a090;border-radius:6px;padding:9px 13px;font-size:11px;color:#8B3A2A;display:none}'
+    + '.ena-submit-wrap{grid-column:1/-1;text-align:center;margin-top:6px}'
+    + '#ena-submit{font-family:\'Raleway\',Arial,sans-serif;font-size:10px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:#F5F0E6;background:#4D5D53;padding:14px 40px;border-radius:32px;border:none;cursor:pointer;transition:background 0.2s}'
+    + '#ena-submit:hover{background:#3D4D44}'
+    + '#ena-submit:disabled{background:#B0956E;cursor:not-allowed}'
+    + '.ena-no-thanks{text-align:center;margin-top:14px;grid-column:1/-1}'
+    + '.ena-no-thanks button{background:none;border:none;cursor:pointer;font-family:\'Raleway\',Arial,sans-serif;font-size:10px;color:#A08470;letter-spacing:0.06em;text-decoration:underline;text-underline-offset:3px}'
+    + '#ena-loading{display:none;text-align:center;padding:72px 48px;background:#F5F0E6}'
+    + '#ena-spinner{width:32px;height:32px;border:2px solid #D8CCBA;border-top-color:#4D5D53;border-radius:50%;animation:ena-spin 0.9s linear infinite;margin:0 auto 18px}'
+    + '@keyframes ena-spin{to{transform:rotate(360deg)}}'
+    + '#ena-loading p{font-size:14px;font-style:italic;font-weight:300;color:#6B5740}'
+    + '#ena-loading .ena-dots::after{content:\'\';animation:ena-dots 1.5s infinite}'
+    + '@keyframes ena-dots{0%{content:\'\'}33%{content:\'.\'}66%{content:\'..\'}100%{content:\'...\'}}'
+    + '#ena-success{display:none;text-align:center;padding:60px 48px 56px;background:#F5F0E6}'
+    + '#ena-success .success-icon{width:52px;height:52px;border-radius:50%;background:#4D5D53;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:22px;color:#F5F0E6}'
+    + '#ena-success h3{font-family:\'marisa-quegpp\',\'Raleway\',sans-serif;font-size:clamp(18px,3vw,24px);font-weight:300;letter-spacing:0.14em;text-transform:uppercase;color:#2A1F10;margin-bottom:12px}'
+    + '#ena-success p{font-size:14px;font-style:italic;font-weight:300;color:#6B5740;line-height:1.8;max-width:400px;margin:0 auto 8px}'
+    + '#ena-success .success-email{font-style:normal;font-weight:500;color:#4D5D53;font-size:13px}'
+    + '#ena-success .success-divider{width:24px;height:1px;background:#B0956E;margin:24px auto}'
+    + '#ena-success .book-link{display:inline-block;font-size:10px;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:#F5F0E6;background:#4D5D53;padding:13px 36px;border-radius:28px;text-decoration:none;transition:background 0.2s;margin-top:4px}'
+    + '#ena-success .book-link:hover{background:#3D4D44}'
+    + '#ena-success .close-link{display:block;margin-top:16px;background:none;border:none;cursor:pointer;font-family:\'Raleway\',Arial,sans-serif;font-size:10px;color:#A08470;letter-spacing:0.06em;text-decoration:underline;text-underline-offset:3px}'
+    + '@media(max-width:560px){#ena-hero{padding:32px 22px 24px}#ena-form-wrap{padding:24px 22px 32px}#ena-form{grid-template-columns:1fr}.ena-date-row{grid-template-columns:1fr}.ena-fg.full,.ena-date-row,.ena-hand-row,.ena-consent,.ena-submit-wrap,.ena-no-thanks,#ena-error{grid-column:1/-1}#ena-success{padding:48px 24px 44px}}';
+
+  // ── HTML (only injected on demand) ────────────────────────
+  var HTML = ''
+    + '<div id="ena-overlay" role="dialog" aria-modal="true" aria-label="Free elemental reading offer">'
+    +   '<div id="ena-modal">'
+    +     '<button id="ena-close" aria-label="Close">&#x2715;</button>'
+    +     '<div id="ena-hero">'
+    +       '<span class="kicker">Chinese Medicine &middot; Auricular Acupuncture</span>'
+    +       '<h2>Your Elemental Constitution,<br>Read From Your Birth Date</h2>'
+    +       '<p>A Four Pillars chart, an elemental profile, and an ear seed protocol matched to your constitution. Sent to your inbox.</p>'
+    +       '<div id="ena-offer">'
+    +         '<span>Four Pillars chart</span>'
+    +         '<span>Elemental profile</span>'
+    +         '<span>Ear seed protocol</span>'
+    +       '</div>'
+    +     '</div>'
+    +     '<div id="ena-form-wrap">'
+    +       '<h3>Enter Your Details</h3>'
+    +       '<form id="ena-form">'
+    +         '<div class="ena-fg"><label>First Name</label><input type="text" id="ena-firstname" placeholder="First name" autocomplete="given-name"></div>'
+    +         '<div class="ena-fg"><label>Last Name</label><input type="text" id="ena-lastname" placeholder="Last name" autocomplete="family-name"></div>'
+    +         '<div class="ena-fg full"><label>Email Address</label><input type="email" id="ena-email" placeholder="your@email.com" required autocomplete="email"></div>'
+    +         '<div class="ena-date-row">'
+    +           '<div class="ena-fg"><label>Birth Year</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="ena-year" placeholder="e.g. 1988" required></div>'
+    +           '<div class="ena-fg"><label>Month</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="ena-month" placeholder="1–12" required></div>'
+    +           '<div class="ena-fg"><label>Day</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="ena-day" placeholder="1–31" required></div>'
+    +           '<div class="ena-fg"><label>Hour (opt.)</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="ena-hour" placeholder="0–23"></div>'
+    +         '</div>'
+    +         '<div class="ena-hand-row">'
+    +           '<span class="ena-hand-lbl">Dominant Hand</span>'
+    +           '<div class="ena-hand-opts">'
+    +             '<label><input type="radio" name="ena-hand" value="right" checked> Right-handed</label>'
+    +             '<label><input type="radio" name="ena-hand" value="left"> Left-handed</label>'
+    +           '</div>'
+    +         '</div>'
+    +         '<div class="ena-consent">'
+    +           '<input type="checkbox" id="ena-consent">'
+    +           '<label for="ena-consent">I\'m happy to receive my reading and occasional relevant updates from Ed Nicholls Acupuncture.</label>'
+    +         '</div>'
+    +         '<div id="ena-error"></div>'
+    +         '<div class="ena-submit-wrap"><button type="submit" id="ena-submit">Generate My Reading</button></div>'
+    +         '<div class="ena-no-thanks"><button type="button" id="ena-nothanks">No thanks, continue to site</button></div>'
+    +       '</form>'
+    +     '</div>'
+    +     '<div id="ena-loading">'
+    +       '<div id="ena-spinner"></div>'
+    +       '<p>Calculating your chart<span class="ena-dots"></span></p>'
+    +     '</div>'
+    +     '<div id="ena-success">'
+    +       '<div class="success-icon">&#10003;</div>'
+    +       '<h3>Your Reading Is On Its Way</h3>'
+    +       '<p>Your personalised Four Pillars chart, elemental profile and ear seed protocol have been generated and sent to</p>'
+    +       '<p class="success-email" id="ena-sent-to"></p>'
+    +       '<div class="success-divider"></div>'
+    +       '<p>Keep an eye on your inbox — and check your junk folder if it doesn\'t arrive within a few minutes.</p>'
+    +       '<a href="https://www.ednicholls.com/appointments" class="book-link">Book a Treatment</a>'
+    +       '<button class="close-link" id="ena-close-success">Close and continue to site</button>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
+
+  // ── Inject + wire up handlers ─────────────────────────────
+  function injectPopup(){
+    if(injected) return;
+    injected = true;
+
+    var style = document.createElement('style');
+    style.textContent = CSS;
+    document.head.appendChild(style);
+
+    var wrap = document.createElement('div');
+    wrap.innerHTML = HTML;
+    document.body.appendChild(wrap.firstChild);
+
+    document.getElementById('ena-close').addEventListener('click', enaClose);
+    document.getElementById('ena-nothanks').addEventListener('click', enaClose);
+    document.getElementById('ena-close-success').addEventListener('click', enaClose);
+    document.getElementById('ena-form').addEventListener('submit', enaSubmit);
+    document.getElementById('ena-overlay').addEventListener('click', function(e){
+      if(e.target === this) enaClose();
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape') enaClose();
+    });
+  }
+
+  function enaOpen(){
+    injectPopup();
+    var o = document.getElementById('ena-overlay');
+    o.style.display = 'flex';
+    requestAnimationFrame(function(){ o.classList.add('visible'); });
+  }
+
+  function enaClose(){
+    var o = document.getElementById('ena-overlay');
+    if(!o) return;
+    o.classList.remove('visible');
+    setTimeout(function(){ o.style.display = 'none'; }, 400);
+    try { localStorage.setItem('ena_popup_closed', Date.now()); } catch(e){}
+  }
+
+  // ── Error helpers ─────────────────────────────────────────
+  function showErr(msg){
+    var e = document.getElementById('ena-error');
+    e.textContent = msg;
+    e.style.display = 'block';
+  }
+  function hideErr(){ document.getElementById('ena-error').style.display = 'none'; }
+
+  // ── Submit ────────────────────────────────────────────────
+  async function enaSubmit(e){
+    e.preventDefault();
+    hideErr();
+    var firstName = document.getElementById('ena-firstname').value.trim();
+    var lastName  = document.getElementById('ena-lastname').value.trim();
+    var name      = [firstName,lastName].filter(Boolean).join(' ') || 'Friend';
+    var email     = document.getElementById('ena-email').value.trim();
+    var year      = parseInt(document.getElementById('ena-year').value.trim(), 10);
+    var month     = parseInt(document.getElementById('ena-month').value.trim(), 10);
+    var day       = parseInt(document.getElementById('ena-day').value.trim(), 10);
+    var hourVal   = document.getElementById('ena-hour').value.trim();
+    var hour      = hourVal === '' ? null : parseInt(hourVal, 10);
+    var handedness= document.querySelector('input[name="ena-hand"]:checked').value;
+    var consent   = document.getElementById('ena-consent').checked;
+    if(!email)              return showErr('Please enter your email address.');
+    if(!year||!month||!day) return showErr('Please enter your complete birth date.');
+    if(!consent)            return showErr('Please tick the consent box to continue.');
+    document.getElementById('ena-form-wrap').style.display = 'none';
+    document.getElementById('ena-hero').style.display = 'none';
+    document.getElementById('ena-loading').style.display = 'block';
+    document.getElementById('ena-submit').disabled = true;
+    document.getElementById('ena-modal').scrollTop = 0;
+    try {
+      var resp = await fetch(API, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({name:name,email:email,year:year,month:month,day:day,hour:hour,handedness:handedness})
+      });
+      var data = await resp.json();
+      if(!resp.ok){
+        var detail = data.detail;
+        var msg = Array.isArray(detail) ? detail.map(function(d){return d.msg;}).join(', ') : (detail || 'Something went wrong. Please try again.');
+        throw new Error(msg);
+      }
+      document.getElementById('ena-loading').style.display = 'none';
+      document.getElementById('ena-sent-to').textContent = email;
+      document.getElementById('ena-success').style.display = 'block';
+      document.getElementById('ena-modal').scrollTop = 0;
+      try { localStorage.setItem('ena_popup_closed', Date.now()); } catch(e){}
+    } catch(err){
+      document.getElementById('ena-loading').style.display = 'none';
+      document.getElementById('ena-hero').style.display = '';
+      document.getElementById('ena-form-wrap').style.display = '';
+      document.getElementById('ena-submit').disabled = false;
+      showErr(err.message || 'Something went wrong. Please try again.');
+    }
+  }
+
+  // ── Trigger: arm on idle, fire on first interaction ───────
+  function enaInit(){
+    if(!shouldShow()) return;
+    if(window.innerWidth < 768) return; // skip mobile
+
+    var triggered = false;
+    var events = ['scroll','mousemove','touchstart','keydown'];
+
+    function cleanup(){
+      events.forEach(function(ev){
+        window.removeEventListener(ev, onInteract, {passive:true});
+      });
+      clearTimeout(fallbackTimer);
+    }
+    function fire(){
+      if(triggered) return;
+      triggered = true;
+      cleanup();
+      enaOpen();
+    }
+    function onInteract(){ fire(); }
+
+    events.forEach(function(ev){
+      window.addEventListener(ev, onInteract, {passive:true, once:true});
+    });
+
+    var fallbackTimer = setTimeout(fire, 20000);
+  }
+
+  function armWhenIdle(){
+    if('requestIdleCallback' in window){
+      requestIdleCallback(enaInit, {timeout: 3000});
+    } else {
+      setTimeout(enaInit, 2000);
+    }
+  }
+  if(document.readyState === 'complete'){
+    armWhenIdle();
+  } else {
+    window.addEventListener('load', armWhenIdle);
+  }
+})();
+</script>
