@@ -1,7 +1,7 @@
 """
 prompt_builder.py
 -----------------
-Constructs the system prompt and user-turn message sent to Claude for the
+Constructs the system prompt and user-turn message sent to OpenAI for the
 Four Pillars · Elemental Constitution reading.
 
 Exports

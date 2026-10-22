@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
-anthropic
+openai>=1.66.0,<3
 httpx
 pydantic
 psycopg2-binary
