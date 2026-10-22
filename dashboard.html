@@ -1171,7 +1171,7 @@
 <body>
 
 <!-- ── Offline banner ──────────────────────────────────── -->
-<div id="offline-banner">⚡ No internet connection — working offline</div>
+<div id="offline-banner">No internet connection — reconnect to access records</div>
 
 <!-- ── Login screen ────────────────────────────────────── -->
 <div id="login-screen">
@@ -1217,6 +1217,7 @@
       </div>
     </div>
     <nav class="sidebar-nav">
+      <a class="nav-item" href="/generator">Reading &amp; protocol preview</a>
       <div class="nav-item active" onclick="showPage('dashboard')">
         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg>
         Dashboard
@@ -1655,19 +1656,12 @@
 
 <script>
 // ── Config ─────────────────────────────────────────────────
-const SERVER_TOKEN = '__TOKEN__'; // injected by server
 const API = '';
 
-// Resolve session token: localStorage → URL param → server-injected
-(function resolveToken() {
-  const urlToken = new URLSearchParams(window.location.search).get('token');
-  if (urlToken) {
-    localStorage.setItem('ena_token', urlToken);
-    history.replaceState({}, '', '/dashboard'); // clean URL
-  }
-  if (!localStorage.getItem('ena_token') && SERVER_TOKEN && SERVER_TOKEN !== '__TOKEN__') {
-    localStorage.setItem('ena_token', SERVER_TOKEN);
-  }
+// Import existing bookmark tokens once, then remove them from the address bar.
+(function () {
+  const token = new URLSearchParams(location.search).get('token');
+  if (token) { localStorage.setItem('ena_token', token); history.replaceState({}, '', '/dashboard'); }
 })();
 
 function getToken() { return localStorage.getItem('ena_token') || ''; }
@@ -1682,16 +1676,14 @@ let activeNotePatientId = null;
 let noteAutoSaveTimer   = null;
 
 // ── Helpers ────────────────────────────────────────────────
-function qs(url) { return `${url}?token=${getToken()}`; }
 
 async function api(method, path, body) {
-  const opts = { method };
+  const opts = { method, headers: {Authorization: `Bearer ${getToken()}`} };
   if (body) {
-    opts.headers = {'Content-Type': 'application/json'};
+    opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
-  const sep = path.includes('?') ? '&' : '?';
-  const res = await fetch(`${API}${path}${sep}token=${getToken()}`, opts);
+  const res = await fetch(`${API}${path}`, opts);
   if (res.status === 401 || res.status === 403) {
     // Token invalid — force re-login
     localStorage.removeItem('ena_token');

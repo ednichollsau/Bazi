@@ -2,7 +2,7 @@
   "name": "Ed Nicholls Acupuncture",
   "short_name": "ENA Dashboard",
   "description": "Practitioner dashboard for Ed Nicholls Acupuncture",
-  "start_url": "/dashboard?token=earseed2026",
+  "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "landscape",
   "background_color": "#4D5D53",

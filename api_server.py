@@ -68,7 +68,8 @@ app.add_middleware(
 async def startup():
     init_db()
     import asyncio
-    asyncio.create_task(_gcal_sync_loop())
+    if os.environ.get("GCAL_SYNC_ENABLED", "").lower() == "true":
+        asyncio.create_task(_gcal_sync_loop())
 
 
 async def _gcal_sync_loop():
@@ -161,7 +162,7 @@ code{{background:#f0f0f0;padding:12px;display:block;word-break:break-all;border-
 <h2>✅ Google Calendar authorised</h2>
 <p>Copy the refresh token below and add it to Railway as <strong>GOOGLE_REFRESH_TOKEN</strong>:</p>
 <code>{refresh_token}</code>
-<p>Once set, redeploy Railway and the hourly sync will start automatically.</p>
+<p>Calendar sync must be explicitly enabled after integration checks.</p>
 </body></html>""")
 
 
@@ -170,6 +171,8 @@ async def api_gcal_sync(request: Request):
     """Manually trigger an immediate GCal sync."""
     if not _check_token(request):
         raise HTTPException(status_code=403, detail="Invalid or missing token.")
+    if os.environ.get("GCAL_SYNC_ENABLED", "").lower() != "true":
+        raise HTTPException(status_code=409, detail="Legacy calendar sync is disabled pending booking-system integration.")
     import asyncio
     from gcal_sync import run_sync
     asyncio.create_task(asyncio.to_thread(run_sync))
@@ -370,9 +373,8 @@ TIP_ICONS_EMAIL = [
 
 # ── Request / Response ─────────────────────────────────────
 
-class ReadingRequest(BaseModel):
+class GeneratorRequest(BaseModel):
     name:       Optional[str] = Field(default="Friend")
-    email:      str
     year:       int  = Field(..., ge=1900, le=2100)
     month:      int  = Field(..., ge=1,    le=12)
     day:        int  = Field(..., ge=1,    le=31)
@@ -401,6 +403,10 @@ class ReadingRequest(BaseModel):
         if v is not None and not (0 <= v <= 23):
             raise ValueError("Hour must be between 0 and 23.")
         return v
+
+class ReadingRequest(GeneratorRequest):
+    email: str
+
 
 class ReadingResponse(BaseModel):
     success:      bool
@@ -1078,8 +1084,7 @@ def _log_to_sheets(name: str, email: str) -> None:
 
 # ── Core endpoint ──────────────────────────────────────────
 
-@app.post("/reading", response_model=ReadingResponse)
-def get_reading(data: ReadingRequest):
+def _generate_reading(data: GeneratorRequest):
 
     # 1. Validate hour
     hour_known = data.hour is not None
@@ -1150,6 +1155,41 @@ def get_reading(data: ReadingRequest):
         logger.error("Claude API error: %s", e)
         raise HTTPException(status_code=502, detail=f"Claude API error: {e}")
 
+    return pillars, constitution, reading_text, principle_obj, protocol, handedness
+
+
+@app.post("/generate")
+def generate_protocol(data: GeneratorRequest, request: Request):
+    """Practitioner-only preview: no email, subscriber or patient writes."""
+    if not _check_token(request):
+        raise HTTPException(status_code=403, detail="Please sign in to the practitioner console.")
+    pillars, constitution, reading, principle, protocol, handedness = _generate_reading(data)
+    if not principle or not protocol:
+        raise HTTPException(status_code=502, detail="Protocol generation failed. Please try again.")
+    points = []
+    for point in protocol.points:
+        ref = AURICULAR_POINTS.get(point.name, {})
+        points.append({key: getattr(point, key) for key in
+                       ("name", "ear", "metal", "intent", "action", "point_type", "note")})
+        points[-1].update({key: ref.get(key, "") for key in
+                          ("body_point_tonify", "body_point_sedate")})
+    return JSONResponse({
+        "constitution": constitution, "reading": reading,
+        "principle": principle.principle, "day_master": principle.day_master,
+        "protocol": {"points": points, "handedness": handedness},
+    }, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/generator", response_class=HTMLResponse)
+def generator_page():
+    from pathlib import Path
+    return HTMLResponse(Path(__file__).with_name("generator.html").read_text(),
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.post("/reading", response_model=ReadingResponse)
+def get_reading(data: ReadingRequest):
+    pillars, constitution, reading_text, principle_obj, protocol, handedness = _generate_reading(data)
     # 7. Build email (includes ear seed protocol overview section)
     html = _build_email(data.name, pillars, constitution, reading_text, principle_obj)
 
@@ -1599,7 +1639,7 @@ _MANIFEST = {
     "name": "Ed Nicholls Console",
     "short_name": "EN Console",
     "description": "Practitioner dashboard — Ed Nicholls Acupuncture",
-    "start_url": "/dashboard?token=earseed2026",
+    "start_url": "/dashboard",
     "display": "standalone",
     "orientation": "any",
     "background_color": "#4D5D53",
@@ -1664,10 +1704,9 @@ def root():
 def dashboard(request: Request):
     # The HTML shell is public — the JS login screen handles auth.
     # All data API endpoints still require a valid token.
-    token = request.query_params.get("token", "")
     try:
         with open("dashboard.html", "r") as f:
-            html = f.read().replace("__TOKEN__", token)
+            html = f.read()
         import base64
         # Inject favicon as data URI so it works without a separate request
         try:

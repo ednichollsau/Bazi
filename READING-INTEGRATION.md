@@ -18,14 +18,29 @@ Squarespace reading form and homepage popup call Railway /reading. The server ge
 
 Fifteen unique existing reading subscribers were imported into the booking subscriber list on 22 October, preserving existing unsubscribe decisions. The authenticated bulk-import endpoint is prepared in this repository but was not live at the last check: Railway explicitly paused deployments due to an upstream incident. No campaign was sent.
 
-## Outstanding integration work
+## Repairs prepared after integration
 
-1. Verify Railway deploys the current branch after its deployment pause ends; verify the subscriber endpoint rejects anonymous requests and supports authenticated admin import.
-2. Remove historical dashboard credentials from PWA URLs and rotate the exposed dashboard token. Changing source alone cannot revoke an already exposed credential.
-3. Repair and test the legacy calendar sync before consolidating calendars. Current code imports untagged events, contrary to the export brief. Its datetime conversion is defective; missing appointments can also cause event deletion. Do not enable a new shared-calendar integration based on the brief's safety claims.
-4. The old standalone /generate UI needs an explicit supported workflow before activation. Use the live Squarespace reading form meanwhile.
-5. New form submissions currently enforce consent in the browser but do not send a consent field to the backend; record consent server-side before relying on automated ongoing subscriber synchronisation.
+The standalone generator is now /generator, linked from the practitioner console. POST /generate requires practitioner authentication and shares the existing calculation/model code. It deliberately does not email, save patients or add subscribers. Public /reading retains its existing response and Resend delivery flow. HTML rendering in the new generator escapes names and generated text.
+
+Calendar reconciliation now compares both sides with the last agreed times, handles timezone offsets using Europe/London, rejects ambiguous/nonexistent naive times, paginates events, uses stable event IDs and database locks, and reports conflicting changes instead of guessing. It does not import unrelated events or delete orphan events. Google deletions and clinic cancellations are not propagated automatically; resolve these in the authoritative booking admin. The implementation still targets the legacy Railway appointment table. It must NOT be enabled as a substitute for the current Supabase booking calendar.
+
+Automatic and manual legacy sync require GCAL_SYNC_ENABLED=true; the default is disabled. Leave it disabled until a current-booking adapter with availability validation, cancellation/refund semantics, patient update emails and an end-to-end live calendar test is implemented. No calendar writes were made during this repair.
+
+Hardcoded dashboard-token URLs were removed from both manifests and the service worker. Old ena-* browser caches are purged when the worker updates; authenticated data and pages are no longer cached. Dashboard API calls now use Bearer headers, and URL tokens are no longer interpolated into executable HTML. Existing bookmark-token import remains for compatibility.
+
+## Deployment and remaining requirements
+
+Railway still explicitly reports "Deploys have been paused due to an upstream issue" on 22 October. The old deployment remains active. These changes are prepared source, not verified production behaviour. Once deployments resume:
+
+1. Deploy current main and verify /health, /dashboard and authenticated /generator. Check the subscriber endpoint gives 401 anonymously and succeeds for the booking administrator.
+2. Rotate the previously exposed DASHBOARD_TOKEN in Railway and sign in again. Source removal cannot revoke a previously exposed credential. The user must enter and submit the replacement credential when using browser UI.
+3. Import reading-form opt-ins through the booking admin, confirming deduplication preserves unsubscribes; the 15 historical addresses are already imported.
+4. Record new form consent server-side before enabling ongoing automated subscription sync. Current form enforcement is browser-only.
 
 ## Validation
 
-Inline JavaScript syntax checked with Node; Python source parsed successfully. The main Squarespace reading block matches the captured live page exactly. Homepage script recovered from the live site rather than overwriting it with the older export. No readings generated, appointments changed, calendar sync invoked or emails sent during this source integration.
+19 automated tests pass, covering both clock changes, different UTC offsets for the same appointment, ambiguous/nonexistent local times, edits in each direction, simultaneous-edit conflicts, missing/deleted calendar events, pagination, disabled sync, practitioner authentication, valid generation with real calculations and mocked prose, invalid dates, anonymous subscriber rejection, and the public reading delivery flow with mocked email/database writes.
+
+JavaScript syntax checks pass for dashboard, generator and worker. An isolated browser check signed in, opened the generator and rendered a fictional result with the real calculation engine and mocked prose. No patient records, real appointments, calendar events or external emails were created. This verifies software wiring; it is not clinical validation of the inherited protocol rules.
+
+Calendar reconciliation uses Google's documented private extended properties and conditional event updates: https://developers.google.com/workspace/calendar/api/guides/extended-properties and https://developers.google.com/workspace/calendar/api/v3/reference/events/patch.
